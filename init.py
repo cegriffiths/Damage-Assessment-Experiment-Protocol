@@ -12,7 +12,7 @@ import pandas as pd
 
 class Sensors:
     def __init__(self, sensor_number, interactions):
-        self.
+        self.intitialize
 
 def initialize(path):
     print("Initializing from: ", path)
