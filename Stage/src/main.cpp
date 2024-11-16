@@ -1,13 +1,16 @@
 #include <Arduino.h>
+#include <BluetoothSerial.h>
 
 #define SIGNAL_OUT 12
 #define DIRECTION_OUT 13
 #define ENABLE_OUT 14
 
 const int pwmChannel = 0;
-bool dir = true;
+BluetoothSerial SerialBT;
+// bool dir = true;
 
 void moveStage(int, int, bool);
+void parseCommand(String command);
 
 void setup() {
   // pinMode(SIGNAL_OUT, OUTPUT);
@@ -17,20 +20,39 @@ void setup() {
   ledcSetup(pwmChannel, 0, 8);
   ledcAttachPin(SIGNAL_OUT, pwmChannel);
 
+  SerialBT.begin("ESP32StepperControl");
 
   Serial.begin(921600);
   Serial.print("Setup Finished");
 }
 
 void loop() {
-  Serial.println("Run");
-  int frequency = 300;
-  int steps = 1000;
-  dir = !dir;
+  // Check if there is a message
+  if (SerialBT.available()){
+    String command = SerialBT.readStringUntil('\n');
+    Serial.printf("Command recieved: %s\n", command.c_str());
 
-  moveStage(frequency, steps, dir);
-  Serial.println("Stop");
-  delay(1000);
+    parseCommand(command);
+  }
+
+  delay(100);
+}
+
+// Take inputs over bluetooth
+// Currently assumes a string of the form "frequency,steps,direction"
+void parseCommand(String command){
+  // Find indices of commas
+  int firstcomma = command.indexOf(',');
+  int secondcomma = command.indexOf(',', firstcomma + 1);
+
+  // Split command string into expected variables
+  int frequency = command.substring(0, firstcomma).toInt();
+  int steps = command.substring(firstcomma + 1, secondcomma).toInt();
+  bool direction = command.substring(secondcomma + 1).toInt() == 1;
+
+  Serial.printf("Frequency: %d, Steps: %d, Direction: %d\n", frequency, steps, direction);
+
+  moveStage(frequency, steps, direction);
 }
 
 // Moves linear stage

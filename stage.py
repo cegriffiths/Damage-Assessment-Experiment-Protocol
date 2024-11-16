@@ -22,3 +22,19 @@ class stage:
         '''Moves the linear stage to finalpos'''
         ## TODO
         print("Move stage to ", finalpos)
+
+
+# Temporary to test the esp32 bluetooth
+import serial
+import time
+
+bluetooth_serial = serial.Serial("COM7", 921600)
+
+def send_command(frequency, steps, direction):
+    command = f"{frequency},{steps},{int(direction)}\n"
+    bluetooth_serial.write(command.encode())
+    print("Sent command:", command)
+    time.sleep(0.1)
+
+
+send_command(300, 1000, True)
