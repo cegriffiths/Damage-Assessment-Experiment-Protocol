@@ -1,21 +1,27 @@
 #include <Arduino.h>
 #include <BluetoothSerial.h>
 
+// Pin definitions
 #define SIGNAL_OUT 12
 #define DIRECTION_OUT 13
 #define ENABLE_OUT 14
+#define LIMIT_SWITCH_IN 15
 
 const int pwmChannel = 0;
 BluetoothSerial SerialBT;
-// bool dir = true;
 
+// Function definitions
 void moveStage(int, int, bool);
 void parseCommand(String command);
+void IRAM_ATTR onLimitSwitchPress();
 
+// Initiate pins and serials
 void setup() {
-  // pinMode(SIGNAL_OUT, OUTPUT);
   pinMode(DIRECTION_OUT, OUTPUT);
   pinMode(ENABLE_OUT, OUTPUT);
+  pinMode(LIMIT_SWITCH_IN, INPUT_PULLUP);
+
+  attachInterrupt(digitalPinToInterrupt(LIMIT_SWITCH_IN), onLimitSwitchPress, FALLING);
 
   ledcSetup(pwmChannel, 0, 8);
   ledcAttachPin(SIGNAL_OUT, pwmChannel);
@@ -26,6 +32,7 @@ void setup() {
   Serial.print("Setup Finished");
 }
 
+// Listening over serialBT for commands
 void loop() {
   // Check if there is a message
   if (SerialBT.available()){
@@ -78,4 +85,11 @@ void moveStage(int frequency, int steps, bool direction){
   ledcWriteTone(pwmChannel, 0);
   // Turn off motor
   digitalWrite(ENABLE_OUT, HIGH);
+}
+
+// ISR on the limit switch
+void IRAM_ATTR onLimitSwitchPress(){
+  SerialBT.println("LIMIT_SWITCH_TRIGGERED");
+  Serial.println("Limit switch triggered.");
+  // Add function to immediately stop motion
 }
