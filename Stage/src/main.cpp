@@ -9,6 +9,7 @@
 
 const int pwmChannel = 0;
 BluetoothSerial SerialBT;
+volatile bool limitSwitchTriggered = false;
 
 // Function definitions
 void moveStage(int, int, bool);
@@ -17,14 +18,12 @@ void IRAM_ATTR onLimitSwitchPress();
 
 // Initiate pins and serials
 void setup() {
-  pinMode(DIRECTION_OUT, OUTPUT);
-  pinMode(ENABLE_OUT, OUTPUT);
-  pinMode(LIMIT_SWITCH_IN, INPUT_PULLUP);
+  pinMode(SIGNAL_OUT, OUTPUT);            //Signal to the motor
+  pinMode(DIRECTION_OUT, OUTPUT);         //true (1) is towards end with motor, false (0) is towards end without motor
+  pinMode(ENABLE_OUT, OUTPUT);            //Low is enabled, High is disabled
+  pinMode(LIMIT_SWITCH_IN, INPUT_PULLUP); //Regularly high, low when pressed
 
   attachInterrupt(digitalPinToInterrupt(LIMIT_SWITCH_IN), onLimitSwitchPress, FALLING);
-
-  ledcSetup(pwmChannel, 0, 8);
-  ledcAttachPin(SIGNAL_OUT, pwmChannel);
 
   SerialBT.begin("ESP32StepperControl");
 
@@ -40,6 +39,14 @@ void loop() {
     Serial.printf("Command recieved: %s\n", command.c_str());
 
     parseCommand(command);
+  }
+
+  // Check if the limit switch is triggered
+  if (limitSwitchTriggered){
+    // Send signals
+    SerialBT.println("LIMIT_SWITCH_TRIGGERED");
+    Serial.println("Limit switch triggered.");
+    limitSwitchTriggered = false;
   }
 
   delay(100);
@@ -68,28 +75,36 @@ void parseCommand(String command){
 // Outputs a direction boolean to another specified pin
 // Toggles an enable pin at the beginning and end of the function
 void moveStage(int frequency, int steps, bool direction){
-  // Calculate total time to do the specified number of steps for the specified frequency in milliseconds
-  int period = 1000 / (frequency);
-  int duration = period * steps;
+    // Calculate the half period in microseconds
+  int halfPeriod = 500000 / frequency;
 
-  // Enable Motor (Assuming high is enabled, low is disabled)
+  // Enable the motor
   digitalWrite(ENABLE_OUT, LOW);
   delay(10);
-  // Give direction 
+
+  // Write the direction to the motor
   digitalWrite(DIRECTION_OUT, direction);
-  // Turn on PWM Signal
-  ledcWriteTone(pwmChannel, frequency);
-  // Wait duration
-  delay(duration);
-  // Turn off PWM Signal
-  ledcWriteTone(pwmChannel, 0);
-  // Turn off motor
+
+  // Send pulses to the motor (one pulse per step)
+  for (int i = 0; i < steps; i++){
+    // If the limit switch is trigger, exit the loop to stop the motor
+    if (limitSwitchTriggered){
+      break;
+    }
+    digitalWrite(SIGNAL_OUT, HIGH);
+    delayMicroseconds(halfPeriod);
+    digitalWrite(SIGNAL_OUT, LOW);
+    delayMicroseconds(halfPeriod);
+  }
+
+  // Disable the motor
   digitalWrite(ENABLE_OUT, HIGH);
 }
 
 // ISR on the limit switch
 void IRAM_ATTR onLimitSwitchPress(){
-  SerialBT.println("LIMIT_SWITCH_TRIGGERED");
-  Serial.println("Limit switch triggered.");
-  // Add function to immediately stop motion
+  // Turn off motor immediately
+  digitalWrite(ENABLE_OUT, HIGH);
+  // Flag for void loop
+  limitSwitchTriggered = true;
 }
