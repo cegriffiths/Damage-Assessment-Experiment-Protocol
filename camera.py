@@ -47,7 +47,6 @@ def assessBrightness(inImage):
 class camera:
     '''Camera Object: Controls the camera. Provides a live feed, can take images, can check calibration'''
     def __init__(self):
-        ## TODO
         self.state = "Init"
 
         ## For General UI Window
@@ -185,7 +184,7 @@ check that the brightness is the correct value, and check that the sensor is in 
         self.imagingWindow.destroy()
         self.openImagingButton.config(state="normal")
 
-    def __snapImage(self):
+    def takeImage(self):
         print("Snap!")
         self.damageApp.snapImage(os.path.join(self.outputPath, self.sensorList[self.step]['sensor']))
     

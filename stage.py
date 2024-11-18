@@ -14,14 +14,14 @@ MAXVELOCITY = 25    ##mm/s
 STEPSTODISTANCE = 0.025 #mm/step
 STAGELENGTH = 450   ##mm
 
-## It is COM7 on my laptop, might be different on other devices
-bluetooth_serial = serial.Serial("COM7", 921600)
 
 class stage:
     '''Stage Object: Controls position of the stage, and deals with calibration'''
     def __init__(self):
         listener_thread = threading.Thread(target=self.listen_for_limit_switch, daemon=True)
         listener_thread.start()
+        ## It is COM7 on my laptop, might be different on other devices
+        self.bluetooth_serial = serial.Serial("COM7", 921600)
         self.position = 0
         self.motionFlag = False
         self.manualStopFlag = False
@@ -75,15 +75,15 @@ class stage:
 
     def sendMoveCommand(self, stepFrequency, numSteps, direction):
         command = f"{stepFrequency},{numSteps},{int(direction)}\n"
-        bluetooth_serial.write(command.encode())
+        self.bluetooth_serial.write(command.encode())
         print(F"Sent command:{stepFrequency},{numSteps},{int(direction)}")
         time.sleep(0.1)
 
     def listen_for_limit_switch(self):
         '''Function to listen for messages from ESP32 in a seperate thread'''
         while True:
-            if bluetooth_serial.in_waiting > 0:
-                message = bluetooth_serial.readline().decode().strip()
+            if self.bluetooth_serial.in_waiting > 0:
+                message = self.bluetooth_serial.readline().decode().strip()
                 if message == "LIMIT_STOP":
                     self.position = 0
                     self.motionFlag = False
