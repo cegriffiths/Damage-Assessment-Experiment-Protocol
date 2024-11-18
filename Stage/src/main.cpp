@@ -41,13 +41,13 @@ void loop() {
     parseCommand(command);
   }
 
-  // Check if the limit switch is triggered
-  if (limitSwitchTriggered){
-    // Send signals
-    SerialBT.println("LIMIT_SWITCH_TRIGGERED");
-    Serial.println("Limit switch triggered.");
-    limitSwitchTriggered = false;
-  }
+  // // Check if the limit switch is triggered
+  // if (limitSwitchTriggered){
+  //   // Send signals
+  //   SerialBT.println("LIMIT_SWITCH_TRIGGERED");
+  //   Serial.println("Limit switch triggered.");
+  //   limitSwitchTriggered = false;
+  // }
 
   delay(100);
 }
@@ -87,10 +87,37 @@ void moveStage(int frequency, int steps, bool direction){
 
   // Send pulses to the motor (one pulse per step)
   for (int i = 0; i < steps; i++){
-    // If the limit switch is trigger, exit the loop to stop the motor
-    if (limitSwitchTriggered){
-      break;
+    // If we are going towards home and limit switch is triggered, 
+    // turn off motor and say the limit switch is triggered
+    if ((limitSwitchTriggered && direction == 0)){
+      // Turn off motor immediately
+      digitalWrite(ENABLE_OUT, HIGH);
+      // Send signals
+      SerialBT.println("LIMIT_STOP");
+      Serial.println("Limit stop");
+      // Flip Flag
+      limitSwitchTriggered = false;
+      return;
     }
+    // If we are going away from home and are out of the range of the limit switch and the limit switch is triggered,
+    // turn off motor and say we manually stopped
+    else if (limitSwitchTriggered && direction == 1 &&  i > 10){
+      // Turn off motor immediately
+      digitalWrite(ENABLE_OUT, HIGH);
+      // Send signals
+      SerialBT.println("MANUAL_STOP");
+      Serial.println("Manual stop");
+      // Flip Flag
+      limitSwitchTriggered = false;
+      return;
+    }
+    // If we are going away from home and are in range of the limit switch and it is triggered (unpressing bounce),
+    // re-enable the motor and keep going
+    else if (limitSwitchTriggered && direction == 1){
+      digitalWrite(ENABLE_OUT, LOW);
+      limitSwitchTriggered = false;
+    }
+    // Do one full cycle
     digitalWrite(SIGNAL_OUT, HIGH);
     delayMicroseconds(halfPeriod);
     digitalWrite(SIGNAL_OUT, LOW);
@@ -99,12 +126,13 @@ void moveStage(int frequency, int steps, bool direction){
 
   // Disable the motor
   digitalWrite(ENABLE_OUT, HIGH);
+  // Send completion message
+  SerialBT.println("DONE_MOTION");
+  Serial.println("Done Motion.");
 }
 
 // ISR on the limit switch
 void IRAM_ATTR onLimitSwitchPress(){
-  // Turn off motor immediately
-  digitalWrite(ENABLE_OUT, HIGH);
   // Flag for void loop
   limitSwitchTriggered = true;
 }

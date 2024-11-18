@@ -7,11 +7,12 @@
 import serial
 import time
 import threading
+import os
 
 BASEVELOCITY = 10    #mm/s
 MAXVELOCITY = 25    ##mm/s
 STEPSTODISTANCE = 0.025 #mm/step
-STAGELENGTH = 500   ##mm
+STAGELENGTH = 450   ##mm
 
 ## It is COM7 on my laptop, might be different on other devices
 bluetooth_serial = serial.Serial("COM7", 921600)
@@ -22,6 +23,8 @@ class stage:
         listener_thread = threading.Thread(target=self.listen_for_limit_switch, daemon=True)
         listener_thread.start()
         self.position = 0
+        self.motionFlag = False
+        self.manualStopFlag = False
         self.calibrate()
 
     def calibrate(self):
@@ -32,6 +35,9 @@ class stage:
         direction = False
         stepFrequency, numSteps = self.getStepFrequencyAndNumSteps(dist)
         self.sendMoveCommand(stepFrequency, numSteps, direction)
+        self.motionFlag = True
+        self.waitForStage()
+        print("Calibration Complete\n")
 
     def moveto(self, position, velocity = BASEVELOCITY):
         '''Moves the linear stage to a position'''
@@ -45,10 +51,22 @@ class stage:
             ## Convert distance and velocity to frequency of steps, and number of steps
             stepFrequency, numSteps = self.getStepFrequencyAndNumSteps(dist)
             self.sendMoveCommand(stepFrequency, numSteps, direction)
-            print("Move stage to ", position, "with velocity ", velocity)
-            print("Distance: ", dist, " Frequency: ", stepFrequency, " Steps: ", numSteps, " Direction: ", direction)
+            ## Set new position
+            self.position = self.position + dist if direction else self.position - dist
+            ## Set motion flag to true and then wait for stage to stop
+            print("Moving Stage")
+            self.motionFlag = True
+            self.waitForStage()
+            print("Moved stage to ", self.position, "with velocity ", velocity, "\n")
+            # print("Distance: ", dist, " Frequency: ", stepFrequency, " Steps: ", numSteps, " Direction: ", direction)
         else:
             print("Position or velocity are out of range")
+
+    def waitForStage(self):
+        '''Waits for the stage to finish moving'''
+        while self.motionFlag:
+            time.sleep(1)
+            print("waiting")
 
     def getStepFrequencyAndNumSteps(self, distance, velocity=BASEVELOCITY):
         numSteps = distance/STEPSTODISTANCE
@@ -58,7 +76,7 @@ class stage:
     def sendMoveCommand(self, stepFrequency, numSteps, direction):
         command = f"{stepFrequency},{numSteps},{int(direction)}\n"
         bluetooth_serial.write(command.encode())
-        print("Sent command:", command)
+        print(F"Sent command:{stepFrequency},{numSteps},{int(direction)}")
         time.sleep(0.1)
 
     def listen_for_limit_switch(self):
@@ -66,15 +84,26 @@ class stage:
         while True:
             if bluetooth_serial.in_waiting > 0:
                 message = bluetooth_serial.readline().decode().strip()
-                if message == "LIMIT_SWITCH_TRIGGERED":
+                if message == "LIMIT_STOP":
                     self.position = 0
-                    print("Limit switch was triggered, stage is at home position")
+                    self.motionFlag = False
+                    print("Stage Home")
+                elif message == "MANUAL_STOP":
+                    self.motionFlag = False
+                    self.manualStopFlag = True
+                    print("Manual Stop")
+                    os._exit(0)
+                elif message == "DONE_MOTION":
+                    self.motionFlag = False
+                    print("Stage is in place")
                 else:
                     print("Received message:", message)
             time.sleep(0.1)
     
 if __name__ == '__main__':
     stage = stage()
-    time.sleep(30)
     stage.moveto(200)
-    time.sleep(60)
+    stage.moveto(10)
+    stage.calibrate()
+    stage.moveto(20)
+    stage.moveto(10)
