@@ -75,60 +75,68 @@ void parseCommand(String command){
 // Outputs a direction boolean to another specified pin
 // Toggles an enable pin at the beginning and end of the function
 void moveStage(int frequency, int steps, bool direction){
-    // Calculate the half period in microseconds
-  int halfPeriod = 500000 / frequency;
-
-  // Enable the motor
-  digitalWrite(ENABLE_OUT, LOW);
-  delay(10);
-
-  // Write the direction to the motor
-  digitalWrite(DIRECTION_OUT, direction);
-
-  // Send pulses to the motor (one pulse per step)
-  for (int i = 0; i < steps; i++){
-    // If we are going towards home and limit switch is triggered, 
-    // turn off motor and say the limit switch is triggered
-    if ((limitSwitchTriggered && direction == 0)){
-      // Turn off motor immediately
-      digitalWrite(ENABLE_OUT, HIGH);
-      // Send signals
-      SerialBT.println("LIMIT_STOP");
-      Serial.println("Limit stop");
-      // Flip Flag
-      limitSwitchTriggered = false;
-      return;
-    }
-    // If we are going away from home and are out of the range of the limit switch and the limit switch is triggered,
-    // turn off motor and say we manually stopped
-    else if (limitSwitchTriggered && direction == 1 &&  i > 10){
-      // Turn off motor immediately
-      digitalWrite(ENABLE_OUT, HIGH);
-      // Send signals
-      SerialBT.println("MANUAL_STOP");
-      Serial.println("Manual stop");
-      // Flip Flag
-      limitSwitchTriggered = false;
-      return;
-    }
-    // If we are going away from home and are in range of the limit switch and it is triggered (unpressing bounce),
-    // re-enable the motor and keep going
-    else if (limitSwitchTriggered && direction == 1){
-      digitalWrite(ENABLE_OUT, LOW);
-      limitSwitchTriggered = false;
-    }
-    // Do one full cycle
-    digitalWrite(SIGNAL_OUT, HIGH);
-    delayMicroseconds(halfPeriod);
-    digitalWrite(SIGNAL_OUT, LOW);
-    delayMicroseconds(halfPeriod);
+  // If going towards home and already home, to not move motor
+  if (direction == 0 && digitalRead(LIMIT_SWITCH_IN) == LOW){
+    // Send signals
+    SerialBT.println("LIMIT_STOP");
+    Serial.println("Already home: Limit stop");
   }
+  else{
+    // Calculate the half period in microseconds
+    int halfPeriod = 500000 / frequency;
 
-  // Disable the motor
-  digitalWrite(ENABLE_OUT, HIGH);
-  // Send completion message
-  SerialBT.println("DONE_MOTION");
-  Serial.println("Done Motion.");
+    // Enable the motor
+    digitalWrite(ENABLE_OUT, LOW);
+    delay(10);
+
+    // Write the direction to the motor
+    digitalWrite(DIRECTION_OUT, direction);
+
+    // Send pulses to the motor (one pulse per step)
+    for (int i = 0; i < steps; i++){
+      // If we are going towards home and limit switch is triggered, 
+      // turn off motor and say the limit switch is triggered
+      if ((limitSwitchTriggered && direction == 0)){
+        // Turn off motor immediately
+        digitalWrite(ENABLE_OUT, HIGH);
+        // Send signals
+        SerialBT.println("LIMIT_STOP");
+        Serial.println("Limit stop");
+        // Flip Flag
+        limitSwitchTriggered = false;
+        return;
+      }
+      // If we are going away from home and are out of the range of the limit switch and the limit switch is triggered,
+      // turn off motor and say we manually stopped
+      else if (limitSwitchTriggered && direction == 1 &&  i > 15){
+        // Turn off motor immediately
+        digitalWrite(ENABLE_OUT, HIGH);
+        // Send signals
+        SerialBT.println("MANUAL_STOP");
+        Serial.println("Manual stop");
+        // Flip Flag
+        limitSwitchTriggered = false;
+        return;
+      }
+      // If we are going away from home and are in range of the limit switch and it is triggered (unpressing bounce),
+      // re-enable the motor and keep going
+      else if (limitSwitchTriggered && direction == 1){
+        digitalWrite(ENABLE_OUT, LOW);
+        limitSwitchTriggered = false;
+      }
+      // Do one full cycle
+      digitalWrite(SIGNAL_OUT, HIGH);
+      delayMicroseconds(halfPeriod);
+      digitalWrite(SIGNAL_OUT, LOW);
+      delayMicroseconds(halfPeriod);
+    }
+
+    // Disable the motor
+    digitalWrite(ENABLE_OUT, HIGH);
+    // Send completion message
+    SerialBT.println("DONE_MOTION");
+    Serial.println("Done Motion.");
+  }
 }
 
 // ISR on the limit switch

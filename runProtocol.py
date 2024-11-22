@@ -12,93 +12,86 @@ import dataHandling
 from tkinter import *
 from tkinter import filedialog
 from tkinter import ttk
+from tkinter import messagebox
 import os
 
 import DamageInspectionRigApp as DI
 from PIL import ImageTk, Image, ImageDraw
 
 class executer:
-    def __init__(self):
-        self.root = Tk()
-        self.root.title("Experiment Setup")
+    def __init__(self, tk):
+        # self.root = Tk()
+        self.root = tk
+        # self.root.title("Protocol Execution")
+        # self.dataManager = dataHandling.dataManager(self.root)
+        self.camera = camera.camera(self.root)
+        # self.stage = None
 
-        # Attributes to store user inputs
-        self.experimentFilePath = None
-        self.EE = StringVar()
-        self.numPnPCycles = IntVar()
-        self.imagingInterval = IntVar()
-
-        self.file_button = None
-
-        self.initialGUI()
-
-        self.dataManager = dataHandling.dataManager(self.experimentFilePath)
-        self.dataManager.readExperimentFile()
-
-        # print("Experiment File:", self.experimentFilePath, "\nEE:", self.EE, "\nPnP cycles:", self.numPnPCycles, "\nImaging Interval:", self.imagingInterval)
-        # self.stage = stage.stage
-        # self.camera = camera.camera
-        # self.dataManager = dataHandling.dataManager
-
-    def initialGUI(self):
-        '''Sets up the GUI to choose the experiment file, End Effector, Number of PnP cycles, and frequency of Images'''
-
-        # Experiment file selection
-        Label(self.root, text="Choose Experiment File").grid(row=0, column=0, pady=5, padx=10)
-        self.file_button = Button(self.root, text="Choose Experiment File", command=self.choose_experiment_file)
-        self.file_button.grid(row=0, column=1, pady=5, padx=10)
+    def start_experiment_setup(self):
+        """Initializes the data handling and shows the first UI."""
+        self.dataManager.initialGUI()
+        self.root.wait_window(self.dataManager.gui_window)  # Wait for user to complete input
         
-        # End effector dropdown menu
-        Label(self.root, text="Select End Effector").grid(row=1, column=0, pady=5, padx=10)
-        EE_options = ["EE1", "EE2", "EE3"]  # Example options
-        EE_menu = ttk.Combobox(self.root, textvariable=self.EE, values=EE_options)
-        EE_menu.grid(row=1, column=1, pady=5, padx=10)
-        EE_menu.set("Select End Effector")
-        
-        # Number of pick and place cycles
-        Label(self.root, text="Number of Pick and Place Cycles").grid(row=2, column=0, pady=5, padx=10)
-        cycles_entry = Entry(self.root, textvariable=self.numPnPCycles)
-        cycles_entry.grid(row=2, column=1, pady=5, padx=10)
-        
-        # Image interval
-        Label(self.root, text="Imaging Interval (cycles/image)").grid(row=3, column=0, pady=5, padx=10)
-        interval_entry = Entry(self.root, textvariable=self.imagingInterval)
-        interval_entry.grid(row=3, column=1, pady=5, padx=10)
-        
-        # Submit button
-        submit_button = Button(self.root, text="Submit", command=self.submit)
-        submit_button.grid(row=4, column=0, columnspan=2, pady=10)
-        
-        self.root.mainloop()
+        # Proceed to the next step
+        self.start_stage_setup()
 
-    def choose_experiment_file(self):
-        '''Opens a file dialog for selecting an experiment file and displays the file name on the button'''
-        self.experimentFilePath = filedialog.askopenfilename(
-            title="Select Experiment File",
-            filetypes=(("JSON Files", "*.json"), ("All Files", "*.*"))
-        )
-        
-        if self.experimentFilePath:
-            # Display just the file name in the button text
-            file_name = os.path.basename(self.experimentFilePath)
-            self.file_button.config(text=file_name)
-            print("Selected Experiment File:", self.experimentFilePath)
+    def start_stage_setup(self):
+        """Initializes the stage and runs its calibration."""
+        self.stage = stage.stage()
+        # self.stage.calibrate()  # Placeholder for stage calibration logic
+        # messagebox.showinfo("Stage Calibration", "Stage calibration completed.")  # Inform the user
 
-    def submit(self):
-        '''Stores input values and closes the GUI'''
-        print("Experiment File:", self.experimentFilePath)
-        print("End Effector:", self.EE.get())
-        print("Pick and Place Cycles:", self.numPnPCycles.get())
-        print("Imaging Interval (cycles/image):", self.imagingInterval.get())
+        # # Proceed to the main protocol UI
+        # self.start_main_ui()
+        # Proceed to robot setup
+        self.start_robot_setup()
 
-        self.root.destroy()
+    def start_robot_setup(self):
+        """Initialize the robot and get to starting position"""
+        ## To-Do
+
+        self.start_camera_setup()
+    
+    def start_camera_setup(self):
+        """Initializes the camera and opens the calibration UI."""
+        # self.camera = camera.camera(self.root)
+        self.camera.run()
+        # self.camera.calibrationGUI()  # Assume this shows a calibration UI
+        # self.camera.damageApp.run(self.root.mainloop)
+        # self.camera.run()
+
+        self.root.wait_window(self.camera.calibration_window)  # Wait for calibration completion
+
+        # # Proceed to the next step
+        # self.start_stage_setup()
+        # Proceed to main ui 
+        self.start_main_ui()
+
+
+    def start_main_ui(self):
+        """Displays the main UI for monitoring protocol execution."""
+        main_ui = Toplevel(self.root)
+        main_ui.title("Protocol Monitoring")
+        ttk.Label(main_ui, text="Protocol is running...").pack(pady=10)
+
+        # Call the main run function
+        self.run_protocol()
+
+    def run_protocol(self):
+        """Executes the main protocol logic."""
+        # Logic for protocol execution
+        print("Running protocol...")
+        # self.stage.moveto(10)  # Example action
+        if self.camera:
+            self.camera.checkCalibration()
 
     def run(self):
-        '''Runs the overall system protocol'''
-        self.stage.moveto(self.stage, 10)
-        self.camera.checkCalibration(self.camera)
+        # self.start_experiment_setup()
+        self.start_camera_setup()
+        # self.root.mainloop()
 
 
 if __name__ == '__main__':
-    execute = executer()
-    # execute.run()
+    tk = Tk()
+    execute = executer(tk)
+    execute.run()

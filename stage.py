@@ -9,7 +9,7 @@ import time
 import threading
 import os
 
-BASEVELOCITY = 10    #mm/s
+BASEVELOCITY = 15    #mm/s
 MAXVELOCITY = 25    ##mm/s
 STEPSTODISTANCE = 0.025 #mm/step
 STAGELENGTH = 450   ##mm
@@ -18,10 +18,10 @@ STAGELENGTH = 450   ##mm
 class stage:
     '''Stage Object: Controls position of the stage, and deals with calibration'''
     def __init__(self):
-        listener_thread = threading.Thread(target=self.listen_for_limit_switch, daemon=True)
-        listener_thread.start()
         ## It is COM7 on my laptop, might be different on other devices
         self.bluetooth_serial = serial.Serial("COM7", 921600)
+        listener_thread = threading.Thread(target=self.listen_for_limit_switch, daemon=True)
+        listener_thread.start()
         self.position = 0
         self.motionFlag = False
         self.manualStopFlag = False
@@ -102,7 +102,7 @@ class stage:
     
 if __name__ == '__main__':
     stage = stage()
-    stage.moveto(200)
+    stage.moveto(20)
     stage.moveto(10)
     stage.calibrate()
     stage.moveto(20)
