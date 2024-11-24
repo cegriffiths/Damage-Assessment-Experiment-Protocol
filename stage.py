@@ -19,7 +19,11 @@ class stage:
     '''Stage Object: Controls position of the stage, and deals with calibration'''
     def __init__(self):
         ## It is COM7 on my laptop, might be different on other devices
-        self.bluetooth_serial = serial.Serial("COM7", 921600)
+        try:
+            self.bluetooth_serial = serial.Serial("COM7", 921600)
+        except serial.serialutil.SerialException as e:
+            self.bluetooth_serial = None
+            print("COM7 not open, error:", e)
         listener_thread = threading.Thread(target=self.listen_for_limit_switch, daemon=True)
         listener_thread.start()
         self.position = 0
@@ -100,10 +104,10 @@ class stage:
                     print("Received message:", message)
             time.sleep(0.1)
     
-if __name__ == '__main__':
-    stage = stage()
-    stage.moveto(20)
-    stage.moveto(10)
-    stage.calibrate()
-    stage.moveto(20)
-    stage.moveto(10)
+# if __name__ == '__main__':
+#     stage = stage()
+#     stage.moveto(20)
+#     stage.moveto(10)
+#     stage.calibrate()
+#     stage.moveto(20)
+#     stage.moveto(10)

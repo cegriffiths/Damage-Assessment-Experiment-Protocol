@@ -7,60 +7,35 @@
 # logs data, and has a user interface displaying relevant information.
 
 import stage
-import camera
+import CameraApp as CA
 import dataHandling
 import UIScript
 import os
+import threading
 from PySide6.QtWidgets import QApplication
-
-import DamageInspectionRigApp as DI
-from PIL import ImageTk, Image, ImageDraw
 
 class executer:
     def __init__(self):
-        self.UIHandler = UIScript.MainWindow()
-        self.UIHandler.show()
         self.dataHandler = dataHandling.dataManager()
-
-    def start_experiment_setup(self):
-        """Initializes the data handling and shows the first UI."""
-        
-
-        # Proceed to the next step
-        # self.start_stage_setup()
-
-    def start_stage_setup(self):
-        """Initializes the stage and runs its calibration."""
+        self.cameraApp = CA.App()
         self.stage = stage.stage()
-
-        # Move on to initialize Robot
-        # self.start_robot_setup()
-
-    def start_robot_setup(self):
-        """Initialize the robot and get to starting position"""
-        ## To-Do
-
-        # self.start_camera_setup()
-    
-    def start_camera_setup(self):
-        """Initializes the camera and opens the calibration UI."""
-        # self.camera.run()
-
-        # # Proceed to the next step
-        # self.start_main_ui()
-
-    def start_main_ui(self):
-        """Displays the main UI for monitoring protocol execution."""
-        # Call the main run function
-        self.run_protocol()
+        self.UIHandler = UIScript.MainWindow(self.dataHandler, self.cameraApp)
+        self.UIHandler.show()
 
     def run_protocol(self):
         """Executes the main protocol logic."""
         # Logic for protocol execution
         print("Running protocol...")
+        self.stage.moveto(20)
+        self.stage.moveto(10)
+
+    def run_protocol_in_background(self):
+        protocol_thread = threading.Thread(target=self.run_protocol, daemon=True)
+        protocol_thread.start()
 
 
 if __name__ == '__main__':
     app = QApplication([])
     execute = executer()
     app.exec()
+    execute.run_protocol_in_background()
