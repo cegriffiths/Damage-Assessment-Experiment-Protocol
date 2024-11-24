@@ -6,7 +6,6 @@
 ## This script allows the reading of experiment files, and allows writting to log files
 
 import json
-import pandas as pd
 from datetime import datetime
 import os
 
@@ -31,12 +30,19 @@ class dataManager:
         self.sensors = experimentData["grid"]
         self.griddim = [len(experimentData["grid"]), len(experimentData["grid"][0])]
 
+        print("Read Experiment File")
         print("GelPakID:", self.GelPakID, "\nSensors:", self.sensors, "\nGrid Dimensions:", self.griddim)
         # print(self.sensors[0][0]["location"])
         # return [self.GelPakID, self.sensors, self.griddim]
 
     def updateExperimentFile(self):
         '''Update the experiment file'''
+        updatedData = {"GelPak ID": self.GelPakID,
+                       "grid": self.sensors}
+        with open(self.experimentFilePath, "w") as f:
+            json.dump(updatedData, f, indent=4)
+
+        print(f"Experiment file '{self.experimentFilePath}' updated successfully!")
         
     def createlog(self):
         '''Create Log file'''
