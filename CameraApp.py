@@ -7,7 +7,9 @@
 ## It will also contain basic functionality to save images for batch image collection (multiple sensors on GelPaks) or inline inspection
 
 import amcam
-import PIL.Image as Image
+# import PIL.Image as Image
+from PIL import Image, ImageDraw
+import numpy as np
 
 def warnRangeSetting(setting, low, high, setVar):
     '''Basic limit setting range check.'''
@@ -15,6 +17,34 @@ def warnRangeSetting(setting, low, high, setVar):
         print(f"{setting} setting ({setVar}) out of range!")
         return True
     return False
+
+# Create calibration frame image
+CALIB_FRAME_SIZE = [376, 524] # Decided in collaboration with Redlen Metrology team
+PREVIEW_FRAME_SIZE = [480, 640]
+xBorder = int((PREVIEW_FRAME_SIZE[0] - CALIB_FRAME_SIZE[0]) / 2)
+yBorder = int(((PREVIEW_FRAME_SIZE[1] - CALIB_FRAME_SIZE[1]) / 2))
+SHAPE = [(xBorder, yBorder), (xBorder + CALIB_FRAME_SIZE[0], yBorder + CALIB_FRAME_SIZE[1])]
+calibFrameImg = Image.new("RGBA", PREVIEW_FRAME_SIZE) # RGBA for transparent background
+calibFrameDraw = ImageDraw.Draw(calibFrameImg)
+calibFrameDraw.rectangle(SHAPE, outline='red', width=4)
+
+def assessCalibration(inImage):
+    # Quick image analysis
+    lightingTestImArr = np.array(inImage)
+    # Naive but easy check -> average all pixels within calibration frame that are above some threshold
+    WHITE_LIMIT = 150
+    count = total = 0
+    for r in range(CALIB_FRAME_SIZE[1]):
+        for c in range(CALIB_FRAME_SIZE[0]):
+            if lightingTestImArr[r + yBorder][c + xBorder][0] > WHITE_LIMIT:
+                total += lightingTestImArr[r + yBorder][c + xBorder][0]
+                count += 1
+    averageWhiteVal = int(total / count)
+    area = count
+    # print(f"AVG PIXEL VALUE: {averageWhiteVal}\nTARGET: 202")
+    # print(f"Count: {count}/{CALIB_FRAME_SIZE[1] * CALIB_FRAME_SIZE[0]}")
+    return averageWhiteVal, area
+
 
 class App:
     def __init__(self, liveCallback = None):
@@ -26,6 +56,10 @@ class App:
         self.running = False
         self.liveCallback = liveCallback
         self.saved = True
+        self.calibrating = False
+        self.brightness = None
+        self.area = None
+        self.counter = 0
 
     def setLiveCallback(self, liveCallback):
         self.liveCallback = liveCallback
@@ -113,7 +147,12 @@ class App:
                 # Construct image from bytes and manipulate as needed (rotate, flip, etc.)
                 # self.lastFrame = Image.frombytes('RGB', self.hcam.get_Size(), self.buf).rotate(90, expand=True).transpose(Image.FLIP_TOP_BOTTOM)
                 # Call callback provided to app in initialization so calling application can do something with the lastFrame (show it, save it, etc.)
+                if self.calibrating and self.counter%20 == 0:
+                    img = Image.frombytes('RGB', [self.width, self.height], self.buf).rotate(90, expand=True).transpose(Image.FLIP_TOP_BOTTOM)
+                    self.brightness, self.area = assessCalibration(img)
+                
                 self.liveCallback()
+                self.counter = self.counter + 1
             except amcam.HRESULTException as ex:
                 print('pull image failed, hr=0x{:x}'.format(ex.hr))
         else:

@@ -9,6 +9,19 @@ import json
 from datetime import datetime
 import os
 
+class sensor:
+    def __init__(self, ID = None, PnPCycles = None, numPhotos = None):
+        self.ID = ID
+        self.PnPCycles = PnPCycles
+        self.numPhotos = numPhotos
+
+    def incrementPnPCycles(self):
+        self.PnPCycles = self.PnPCycles + 1
+
+    def incrementNumPhotos(self):
+        self.numPhotos = self.numPhotos + 1
+
+
 class dataManager:
     def __init__(self):
         self.gui_window = None
@@ -17,6 +30,9 @@ class dataManager:
         self.numPnPCycles = None
         self.imagingInterval = None
         self.logdir = "LOGS"
+        self.GelPakID = None
+        self.griddim = None
+        self.sensors = [[sensor() for i in range(4)] for j in range(3)]
         # self.logFilePath
 
     def readExperimentFile(self):
@@ -27,11 +43,16 @@ class dataManager:
         # print(experimentData["grid"])
 
         self.GelPakID = experimentData["GelPak ID"]
-        self.sensors = experimentData["grid"]
-        self.griddim = [len(experimentData["grid"]), len(experimentData["grid"][0])]
+        # self.sensors = experimentData["grid"]
+        self.griddim = [len(experimentData["grid"]), len(experimentData["grid"][0])]    ## rows by columns
+        for row in range(self.griddim[0]):
+            for col in range(self.griddim[1]):
+                self.sensors[row][col].ID = experimentData["grid"][row][col]["ID"]
+                self.sensors[row][col].PnPCycles = experimentData["grid"][row][col]["PnP_cycles"]
+                self.sensors[row][col].numPhotos = experimentData["grid"][row][col]["photos"]
 
         print("Read Experiment File")
-        print("GelPakID:", self.GelPakID, "\nSensors:", self.sensors, "\nGrid Dimensions:", self.griddim)
+        # print("GelPakID:", self.GelPakID, "\nSensors:", self.sensors, "\nGrid Dimensions:", self.griddim)
         # print(self.sensors[0][0]["location"])
         # return [self.GelPakID, self.sensors, self.griddim]
 
