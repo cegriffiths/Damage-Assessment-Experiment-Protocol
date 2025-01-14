@@ -29,7 +29,7 @@ class stage:
         self.position = 0
         self.motionFlag = False
         self.manualStopFlag = False
-        self.calibrate()
+        # self.calibrate()
 
     def calibrate(self):
         '''Calibrates the linear stage'''
@@ -104,10 +104,11 @@ class stage:
                     print("Received message:", message)
             time.sleep(0.1)
     
-# if __name__ == '__main__':
-#     stage = stage()
-#     stage.moveto(20)
-#     stage.moveto(10)
-#     stage.calibrate()
-#     stage.moveto(20)
-#     stage.moveto(10)
+if __name__ == '__main__':
+    stage = stage()
+    stage.calibrate()
+    stage.moveto(20)
+    # stage.moveto(10)
+    # stage.calibrate()
+    # stage.moveto(20)
+    # stage.moveto(10)

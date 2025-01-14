@@ -9,6 +9,7 @@ import os
 import sys
 import dataHandling
 import CameraApp as CA
+import stage
 import amcam
 from datetime import datetime
 import PySide6
@@ -60,6 +61,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.dataHandler = dataHandler
         self.CameraApp = CameraApp
+        # self.stage = stage
         self.CameraApp.setLiveCallback(self.liveCallback)
         self.outputPath = "OUTPUT_IMAGES"
         self.dataInputsFlag = False

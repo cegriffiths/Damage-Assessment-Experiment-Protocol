@@ -19,6 +19,7 @@ class executer:
         self.dataHandler = dataHandling.dataManager()
         self.cameraApp = CA.App()
         self.stage = stage.stage()
+        self.stage.calibrate()
         self.UIHandler = UIScript.MainWindow(self.dataHandler, self.cameraApp)
         self.UIHandler.show()
 
@@ -26,7 +27,6 @@ class executer:
         """Executes the main protocol logic."""
         # Logic for protocol execution
         print("Running protocol...")
-        self.stage.moveto(20)
         self.stage.moveto(10)
 
     def run_protocol_in_background(self):
