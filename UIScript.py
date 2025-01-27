@@ -13,7 +13,7 @@ import stage
 import amcam
 from datetime import datetime
 import PySide6
-from PySide6.QtCore import QDate, QDir, QStandardPaths, Qt, QUrl, Slot, Signal
+from PySide6.QtCore import QDate, QDir, QStandardPaths, Qt, QUrl, Slot, Signal, QObject
 from PySide6.QtGui import QAction, QGuiApplication, QDesktopServices, QIcon
 from PySide6.QtGui import QImage, QPixmap, QFont
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel,
@@ -57,6 +57,10 @@ class SensorLayout(QWidget):
         self.cycles_label.setText(f"Cycles: {self.cycles}")
 
 class MainWindow(QMainWindow):
+
+    flags_updated = Signal()    ## Signal which
+
+    # def __init__(stage, self, dataHandler = dataHandling.dataManager(), CameraApp = CA.App()):
     def __init__(self, dataHandler = dataHandling.dataManager(), CameraApp = CA.App()):
         super().__init__()
         self.dataHandler = dataHandler
@@ -64,8 +68,9 @@ class MainWindow(QMainWindow):
         # self.stage = stage
         self.CameraApp.setLiveCallback(self.liveCallback)
         self.outputPath = "OUTPUT_IMAGES"
-        self.dataInputsFlag = False
-        self.calibratedCameraFlag = False
+        ## Flags
+        self.dataInputsFlag = False         # Flag to check that we have experimental inputs
+        self.calibratedCameraFlag = False   # Flag to check that the camera is calibrated
 
         self.initUI()
         self.CameraApp.run()
@@ -104,11 +109,11 @@ class MainWindow(QMainWindow):
         self.stage_label.setFont(header_font)
         self.stage_state_label = QLabel("State: ")
         self.stage_currentPos_label = QLabel("Current Position: ")
-        self.stage_desiredPos_label = QLabel("Desired Position: ")
+        # self.stage_desiredPos_label = QLabel("Desired Position: ")
         stage_layout.addWidget(self.stage_label, alignment=Qt.AlignHCenter)
         stage_layout.addWidget(self.stage_state_label)
         stage_layout.addWidget(self.stage_currentPos_label)
-        stage_layout.addWidget(self.stage_desiredPos_label)
+        # stage_layout.addWidget(self.stage_desiredPos_label)
         robot_stage_layout.addLayout(stage_layout)
         # robot_stage_layout.addWidget(stage_container)
 
@@ -232,7 +237,6 @@ class MainWindow(QMainWindow):
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
 
-
     def browse_file(self):
         # Open a file dialog and set the selected file path to the input field
         file_path, _ = QFileDialog.getOpenFileName(self, "Select a File", "EXPERIMENT_INPUTS", "JSON Files (*.json);;All Files (*.*)")
@@ -263,7 +267,8 @@ class MainWindow(QMainWindow):
         self.dataHandler.EE = self.EE
         self.dataHandler.numPnPCycles = self.num_PnP_cycles
         self.dataHandler.imagingInterval = self.imaging_interval
-        self.dataInputsFlag = True
+        self.dataInputsFlag = True  #Update Flag
+        self.flags_updated.emit()   #Send Signal to executer
         self.dataHandler.readExperimentFile()
         self.updateSensorInformation()
 
@@ -289,7 +294,6 @@ class MainWindow(QMainWindow):
             self.brightness_label.setText("Brightness: Not Calibrating")
             self.area_label.setText("Area: Not Calibrating")
 
-
     def closeEvent(self, event):
         self.CameraApp.closeCam()
 
@@ -308,7 +312,29 @@ class MainWindow(QMainWindow):
 
     def confirmCameraCalibration(self):
         self.calibratedCameraFlag = True
+        self.flags_updated.emit()
         self.confirm_calib_push_button.setEnabled(False)
+
+    def updateExperimentState(self, state):
+        self.experiment_state_label.setText(f"State: {state}")
+
+    def updateComponents(self):
+        print("updating")
+        ## Uncomment when stage is working
+        # if self.stage.motionFlag == True and self.stage.manualStopFlag == False:
+        #     self.stage_state_label = QLabel("State: Moving")
+        # elif self.stage.motionFlag == False and self.stage.manualStopFlag == True:
+        #     self.stage_state_label = QLabel("State: Manual Stop")
+        # elif self.stage.motionFlag == False and self.stage.manualStopFlag == False:
+        #     self.stage_state_label = QLabel("State: In Position")
+        # else:
+        #     self.stage_state_label = QLabel("State: Unknown")
+
+        # self.stage_currentPos_label = QLabel(f"Current Position: {self.stage.position}")
+
+        # self.robot_state_label = QLabel(f"State: {self.robot.state}")
+
+
 
 # Run the application
 if __name__ == "__main__":

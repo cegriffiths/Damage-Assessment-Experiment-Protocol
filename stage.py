@@ -8,6 +8,7 @@ import serial
 import time
 import threading
 import os
+from PySide6.QtCore import Signal, QObject
 
 BASEVELOCITY = 15    #mm/s
 MAXVELOCITY = 25    ##mm/s
@@ -15,12 +16,17 @@ STEPSTODISTANCE = 0.025 #mm/step
 STAGELENGTH = 450   ##mm
 
 
-class stage:
+class stage(QObject):
     '''Stage Object: Controls position of the stage, and deals with calibration'''
+
+    update_stage = Signal()
+
     def __init__(self):
+        super().__init__()
         ## It is COM7 on my laptop, might be different on other devices
         try:
             self.bluetooth_serial = serial.Serial("COM7", 921600)
+            print("BT Connected")
         except serial.serialutil.SerialException as e:
             self.bluetooth_serial = None
             print("COM7 not open, error:", e)
@@ -40,6 +46,7 @@ class stage:
         stepFrequency, numSteps = self.getStepFrequencyAndNumSteps(dist)
         self.sendMoveCommand(stepFrequency, numSteps, direction)
         self.motionFlag = True
+        self.update_stage.emit()
         self.waitForStage()
         print("Calibration Complete\n")
 
@@ -60,6 +67,7 @@ class stage:
             ## Set motion flag to true and then wait for stage to stop
             print("Moving Stage")
             self.motionFlag = True
+            self.update_stage.emit()
             self.waitForStage()
             print("Moved stage to ", self.position, "with velocity ", velocity, "\n")
             # print("Distance: ", dist, " Frequency: ", stepFrequency, " Steps: ", numSteps, " Direction: ", direction)
@@ -78,6 +86,7 @@ class stage:
         return stepFrequency, numSteps
 
     def sendMoveCommand(self, stepFrequency, numSteps, direction):
+        print("Sending Command")
         command = f"{stepFrequency},{numSteps},{int(direction)}\n"
         self.bluetooth_serial.write(command.encode())
         print(F"Sent command:{stepFrequency},{numSteps},{int(direction)}")
@@ -91,14 +100,17 @@ class stage:
                 if message == "LIMIT_STOP":
                     self.position = 0
                     self.motionFlag = False
+                    self.update_stage.emit()
                     print("Stage Home")
                 elif message == "MANUAL_STOP":
                     self.motionFlag = False
                     self.manualStopFlag = True
+                    self.update_stage.emit()
                     print("Manual Stop")
                     os._exit(0)
                 elif message == "DONE_MOTION":
                     self.motionFlag = False
+                    self.update_stage.emit()
                     print("Stage is in place")
                 else:
                     print("Received message:", message)

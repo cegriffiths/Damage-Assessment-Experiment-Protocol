@@ -50,6 +50,7 @@ void loop() {
   // }
 
   delay(100);
+  Serial.print("Looping");
 }
 
 // Take inputs over bluetooth
