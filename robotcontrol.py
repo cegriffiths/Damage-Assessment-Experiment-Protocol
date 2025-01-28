@@ -113,88 +113,6 @@ class Robot:
         except KeyboardInterrupt:
             print("Interrupted by user")
 
-# if __name__ == '__main__':
-#     #Number of picks per sensor
-#     num_picks = 3
-#     #Three sensor positions
-#     num_sensors = 1
-#     #[x, y, z, rx, ry, rz]
-#     sensor_positions = [
-#         [0.0979, -0.451, 0.1125, 0, 3.14, 0],
-#         # [0.0, -0.55, 0.1, 0, 3.14, 0],
-#         # [0.0, -0.6, 0.1, 0, 3.14, 0] 
-#     ]
-
-#     robot = Robot(ROBOT_IP, DASHBOARD_PORT, ROBOT_PORT)
-#     robot.connect()
-
-#     remoteCheck = robot.send_command('is in remote control')
-#     if 'false' in remoteCheck:
-#         raise Exception('Robot is in local mode. Some commands may not function.')
-        
-
-#     print("Powering on robot")
-#     robot.send_command('power on')
-#     ready = False
-#     while not ready:
-#         ready = not [i for i in ['POWER_ON', 'POWER_OFF', 'BOOTING'] if i in robot.send_command('robotmode')]
-#         time.sleep(1)
-    
-#     print("Releasing brakes")
-#     robot.send_command('brake release')
-#     ready = False
-#     while not ready:
-#         ready = 'RUNNING' in robot.send_command('robotmode')
-#         time.sleep(1)
-
-#     print("Loading Init Script")
-#     robot.send_command('load initialize.urp')
-#     time.sleep(1)
-#     print("Playing Init Script")
-#     robot.send_command('play')
-#     time.sleep(0.1)
-#     while('true' in robot.send_command('running')):
-#         time.sleep(1)
-
-#     print("Loading PnP Script")
-#     robot.send_command('load pick_and_place.urp')
-#     time.sleep(1)
-#     print("Playing PnP Script")
-#     robot.send_command('play')
-#     print("Waiting for connection from robot")
-#     while True:
-#         try:
-#             client, address = robot.server_socket.accept()
-#             print(f"Connection from {address}")        
-#             break
-#         except KeyboardInterrupt:
-#             print("Closing connection")
-#             robot.close()
-#             sys.exit()
-
-#     print("Sending PnP Data")
-#     robot.send_PnPData(num_picks, num_sensors, sensor_positions)
-    
-#     try:
-#         while True:
-#             collected = b''
-#             while True:
-#                 part = client.recv(1)
-#                 if part != b'\n':
-#                     collected += part
-#                 elif part == b'\n':
-#                     break
-
-#             status_update = collected.decode('utf-8')
-#             print(f"Status update from robot: {status_update}")
-#             time.sleep(0.5)
-#     except KeyboardInterrupt:
-#         print("Interrupted by user")
-#         robot.close()
-#         sys.exit()
-
-
-
 class RobotExt:
     def __init__(self, robot_ip, dashboard_port, robot_port):
         self.robot = Robot(robot_ip, dashboard_port, robot_port)
@@ -274,10 +192,10 @@ class RobotExt:
             sys.exit()
 
 if __name__ == '__main__':
-    num_picks = 3
+    num_picks = 1
     num_sensors = 1
     sensor_positions = [
-    [0.0979, -0.451, 0.1125, 0, 3.14, 0],
+    [0.0718, -0.449, 0.1123, 0, 3.14, 0],
     ]
 
     robot_ext = RobotExt(ROBOT_IP, DASHBOARD_PORT, ROBOT_PORT)
