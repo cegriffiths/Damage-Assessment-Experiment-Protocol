@@ -1,3 +1,8 @@
 EXPERIMENT_INPUTS/
 LOGS/
 OUTPUT_IMAGES/
+bin/
+lib/
+lib64
+__pycache__/
+pyvenv.cfg
