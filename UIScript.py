@@ -60,12 +60,12 @@ class MainWindow(QMainWindow):
 
     flags_updated = Signal()    ## Signal which
 
-    # def __init__(stage, self, dataHandler = dataHandling.dataManager(), CameraApp = CA.App()):
-    def __init__(self, dataHandler = dataHandling.dataManager(), CameraApp = CA.App()):
+    def __init__(stage, self, dataHandler = dataHandling.dataManager(), CameraApp = CA.App()):
+    # def __init__(self, dataHandler = dataHandling.dataManager(), CameraApp = CA.App()):
         super().__init__()
         self.dataHandler = dataHandler
         self.CameraApp = CameraApp
-        # self.stage = stage
+        self.stage = stage
         self.CameraApp.setLiveCallback(self.liveCallback)
         self.outputPath = "OUTPUT_IMAGES"
         ## Flags
@@ -320,17 +320,17 @@ class MainWindow(QMainWindow):
 
     def updateComponents(self):
         print("updating")
-        ## Uncomment when stage is working
-        # if self.stage.motionFlag == True and self.stage.manualStopFlag == False:
-        #     self.stage_state_label = QLabel("State: Moving")
-        # elif self.stage.motionFlag == False and self.stage.manualStopFlag == True:
-        #     self.stage_state_label = QLabel("State: Manual Stop")
-        # elif self.stage.motionFlag == False and self.stage.manualStopFlag == False:
-        #     self.stage_state_label = QLabel("State: In Position")
-        # else:
-        #     self.stage_state_label = QLabel("State: Unknown")
+        # Uncomment when stage is working
+        if self.stage.motionFlag == True and self.stage.manualStopFlag == False:
+            self.stage_state_label = QLabel("State: Moving")
+        elif self.stage.motionFlag == False and self.stage.manualStopFlag == True:
+            self.stage_state_label = QLabel("State: Manual Stop")
+        elif self.stage.motionFlag == False and self.stage.manualStopFlag == False:
+            self.stage_state_label = QLabel("State: In Position")
+        else:
+            self.stage_state_label = QLabel("State: Unknown")
 
-        # self.stage_currentPos_label = QLabel(f"Current Position: {self.stage.position}")
+        self.stage_currentPos_label = QLabel(f"Current Position: {self.stage.position}")
 
         # self.robot_state_label = QLabel(f"State: {self.robot.state}")
 
