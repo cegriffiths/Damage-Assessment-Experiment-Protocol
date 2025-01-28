@@ -13,7 +13,7 @@ from PySide6.QtCore import Signal, QObject
 BASEVELOCITY = 15    #mm/s
 MAXVELOCITY = 25    ##mm/s
 STEPSTODISTANCE = 0.025 #mm/step
-STAGELENGTH = 450   ##mm
+STAGELENGTH = 451   ##mm
 
 
 class stage(QObject):
@@ -119,8 +119,4 @@ class stage(QObject):
 if __name__ == '__main__':
     stage = stage()
     stage.calibrate()
-    stage.moveto(20)
-    # stage.moveto(10)
-    # stage.calibrate()
-    # stage.moveto(20)
-    # stage.moveto(10)
+    stage.moveto(347)

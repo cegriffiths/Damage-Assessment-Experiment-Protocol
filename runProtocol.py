@@ -29,12 +29,13 @@ class executer(QObject):
 
         self.robot = robotcontrol.RobotExt()
         self.robot.calibrate()
+        self.robot.monitor_serial()
 
-        # self.stage = stage.stage()
-        # self.stage.calibrate()
+        self.stage = stage.stage()
+        self.stage.calibrate()
 
-        # self.UIHandler = UIScript.MainWindow(self.stage, self.dataHandler, self.cameraApp)
-        # self.stage.update_stage.connect(self.UIHandler.updateComponents)
+        self.UIHandler = UIScript.MainWindow(self.stage, self.dataHandler, self.cameraApp)
+        self.stage.update_stage.connect(self.UIHandler.updateComponents)
         self.UIHandler = UIScript.MainWindow(self.dataHandler, self.cameraApp)
         self.UIHandler.updateComponents()
         self.UIHandler.flags_updated.connect(self.checkFlags)
@@ -63,11 +64,11 @@ class executer(QObject):
         print("Running protocol...")
         time.sleep(1)
         self.change_state("Running")
+        self.stage.moveto(347)
         sensor_positions = [
         [0.0979, -0.451, 0.1125, 0, 3.14, 0],
         ]
         self.robot.run(3, self.dataHandler.numPnPCycles, sensor_positions)
-        # self.stage.moveto(10)
 
     def run_protocol_in_background(self):
         protocol_thread = threading.Thread(target=self.run_protocol, daemon=True)
