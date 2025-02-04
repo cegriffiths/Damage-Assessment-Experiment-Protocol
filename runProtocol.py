@@ -17,6 +17,7 @@ import time
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Signal, QObject
 
+
 class executer(QObject):
 
     update_state = Signal(str)  # Signal which, when the state is updated here, calls the function in MainWindow
@@ -29,14 +30,12 @@ class executer(QObject):
 
         self.robot = robotcontrol.RobotExt()
         self.robot.calibrate()
-        self.robot.monitor_serial()
 
         self.stage = stage.stage()
         self.stage.calibrate()
 
         self.UIHandler = UIScript.MainWindow(self.stage, self.dataHandler, self.cameraApp)
         self.stage.update_stage.connect(self.UIHandler.updateComponents)
-        self.UIHandler = UIScript.MainWindow(self.dataHandler, self.cameraApp)
         self.UIHandler.updateComponents()
         self.UIHandler.flags_updated.connect(self.checkFlags)
 
@@ -66,9 +65,9 @@ class executer(QObject):
         self.change_state("Running")
         self.stage.moveto(347)
         sensor_positions = [
-        [0.0979, -0.451, 0.1125, 0, 3.14, 0],
+        [0.0718, -0.449, 0.1123, 0, 3.14, 0],
         ]
-        self.robot.run(3, self.dataHandler.numPnPCycles, sensor_positions)
+        self.robot.run(1, self.dataHandler.numPnPCycles, sensor_positions)
 
     def run_protocol_in_background(self):
         protocol_thread = threading.Thread(target=self.run_protocol, daemon=True)

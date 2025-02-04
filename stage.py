@@ -25,7 +25,7 @@ class stage(QObject):
         super().__init__()
         ## It is COM7 on my laptop, might be different on other devices
         try:
-            self.bluetooth_serial = serial.Serial("COM7", 921600)
+            self.bluetooth_serial = serial.Serial("/dev/rfcomm0", 921600)
             print("BT Connected")
         except serial.serialutil.SerialException as e:
             self.bluetooth_serial = None

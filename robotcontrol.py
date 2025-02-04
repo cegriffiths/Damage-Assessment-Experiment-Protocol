@@ -7,17 +7,18 @@ import threading
 
 ##Dashboard Commands
 # This is the IP address of the robot.
+
 ROBOT_IP = "10.42.0.30" #Double check this
 SERVER_IP = "10.42.0.1"
 DASHBOARD_PORT = 29999
 ROBOT_PORT = 30001 #Same as from the URScript
 
 class Robot:
-    def __init__(self, ROBOT_IP, DASHBOARD_PORT, ROBOT_PORT):
-        self.ROBOT_IP = ROBOT_IP
-        self.SERVER_IP = SERVER_IP
-        self.DASHBOARD_PORT = DASHBOARD_PORT
-        self.ROBOT_PORT = ROBOT_PORT
+    def __init__(self):
+        self.ROBOT_IP = "10.42.0.30"
+        self.SERVER_IP = "10.42.0.1"
+        self.DASHBOARD_PORT = 29999
+        self.ROBOT_PORT = 30001
         self.timeout = 5
         self.dash_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -114,8 +115,8 @@ class Robot:
             print("Interrupted by user")
 
 class RobotExt:
-    def __init__(self, robot_ip, dashboard_port, robot_port):
-        self.robot = Robot(robot_ip, dashboard_port, robot_port)
+    def __init__(self):
+        self.robot = Robot()
         self.robot.connect()
 
     def calibrate(self):
@@ -195,10 +196,12 @@ if __name__ == '__main__':
     num_picks = 1
     num_sensors = 1
     sensor_positions = [
-    [0.0718, -0.449, 0.1123, 0, 3.14, 0],
+    # [0.0718, -0.449, 0.1123, 0, 3.14, 0],
+    [0.0718, -0.449, 0.1120, 0, 3.14, 0],
+
     ]
 
-    robot_ext = RobotExt(ROBOT_IP, DASHBOARD_PORT, ROBOT_PORT)
+    robot_ext = RobotExt()
     robot_ext.calibrate()
     robot_ext.run(num_sensors, num_picks, sensor_positions)
 

@@ -60,7 +60,7 @@ class MainWindow(QMainWindow):
 
     flags_updated = Signal()    ## Signal which
 
-    def __init__(stage, self, dataHandler = dataHandling.dataManager(), CameraApp = CA.App()):
+    def __init__(self, stage, dataHandler = dataHandling.dataManager(), CameraApp = CA.App()):
     # def __init__(self, dataHandler = dataHandling.dataManager(), CameraApp = CA.App()):
         super().__init__()
         self.dataHandler = dataHandler
