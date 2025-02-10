@@ -28,28 +28,23 @@ from PySide6.QtMultimediaWidgets import QVideoWidget
 os.environ["QT_PLUGIN_PATH"] = os.path.join(os.path.dirname(PySide6.__file__), "plugins")
 
 class SensorLayout(QWidget):
-    def __init__(self, sensorPos, sensorID, numPnP):
+    def __init__(self, sensor_id, num_pnp):
         super().__init__()
-        self.sensor_Pos = sensorPos
-        self.sensor_id = sensorID
-        self.cycles = numPnP
-        
-        # Layout for each sensor
+        self.sensor_id = sensor_id
+        self.cycles = num_pnp
+
         layout = QVBoxLayout()
-        
-        # Labels for ID and cycles
-        # self.pos_label = QLabel(f"Position: {self.sensor_Pos}")
+
         self.id_label = QLabel(f"Sensor ID: {self.sensor_id}")
         self.cycles_label = QLabel(f"Cycles: {self.cycles}")
-        
-        # Add labels to layout
+
         layout.addWidget(self.id_label)
         layout.addWidget(self.cycles_label)
-        
+
         self.setLayout(layout)
-    
-    def updateID(self, ID):
-        self.sensor_id = ID
+
+    def updateID(self, sensor_id):
+        self.sensor_id = sensor_id
         self.id_label.setText(f"Sensor ID: {self.sensor_id}")
 
     def updateCycles(self, cycles):
@@ -58,24 +53,20 @@ class SensorLayout(QWidget):
 
 class MainWindow(QMainWindow):
 
-    flags_updated = Signal()    ## Signal which
+    flags_updated = Signal()
 
-    def __init__(self, stage, dataHandler = dataHandling.dataManager(), CameraApp = CA.App()):
-    # def __init__(self, dataHandler = dataHandling.dataManager(), CameraApp = CA.App()):
+    def __init__(self, stage, dataHandler=None, CameraApp=None):
         super().__init__()
-        self.dataHandler = dataHandler
-
-        self.CameraApp = CameraApp
+        self.dataHandler = dataHandler or dataHandling.DataManager()
+        self.CameraApp = CameraApp or CA.App()
         self.CameraApp.setLiveCallback(self.liveCallback)
-        self.outputPath = "OUTPUT_IMAGES"
 
         self.stage = stage
         self.stage.state_changed.connect(self.on_stage_state_update)
         self.stage.position_changed.connect(self.on_stage_position_update)
 
-        ## Flags
-        self.dataInputsFlag = False         # Flag to check that we have experimental inputs
-        self.calibratedCameraFlag = False   # Flag to check that the camera is calibrated
+        self.dataInputsFlag = False
+        self.calibratedCameraFlag = False
 
         self.initUI()
         self.CameraApp.run()
@@ -141,13 +132,14 @@ class MainWindow(QMainWindow):
         self.sensor_label = QLabel("Sensor Information")
         self.sensor_label.setFont(header_font)
         self.sensor_grid_layout = QGridLayout()
-        for row in range(3):
-            for col in range(4):
-                sensorPos = [row, col]
-                sensorID = self.dataHandler.sensors[row][col].ID
-                numPnP = self.dataHandler.sensors[row][col].PnPCycles
-                sensorWidget = SensorLayout(sensorPos, sensorID, numPnP)
-                self.sensor_grid_layout.addWidget(sensorWidget, row, col)
+
+        for row in range(self.dataHandler.gelpak_dimensions[0]):
+            for col in range(self.dataHandler.gelpak_dimensions[1]):
+                sensor = self.dataHandler.get_sensor(row, col)
+                sensor_id = sensor["ID"] if sensor else "N/A"
+                num_pnp = sensor["PnP_cycles"] if sensor else 0
+                sensor_widget = SensorLayout(sensor_id, num_pnp)
+                self.sensor_grid_layout.addWidget(sensor_widget, row, col)
         
         sensor_layout.addWidget(self.sensor_label, alignment=Qt.AlignHCenter)
         sensor_layout.addLayout(self.sensor_grid_layout)
@@ -182,7 +174,7 @@ class MainWindow(QMainWindow):
         PnP_cycles_layout = QHBoxLayout()
         PnP_cycles_label = QLabel("Number of Pick and Place Cycles:")
         self.PnP_cycles_input = QSpinBox()
-        self.PnP_cycles_input.setRange(0, 100)  # Set the range for the number input
+        self.PnP_cycles_input.setRange(1, 100)  # Set the range for the number input
         self.PnP_cycles_input.setValue(50)  # Default value
         PnP_cycles_layout.addWidget(PnP_cycles_label)
         PnP_cycles_layout.addWidget(self.PnP_cycles_input)
@@ -191,7 +183,7 @@ class MainWindow(QMainWindow):
         Imaging_Interval_layout = QHBoxLayout()
         Imaging_Interval_label = QLabel("Imaging Interval (cycles/image):")
         self.Imaging_Interval_input = QSpinBox()
-        self.Imaging_Interval_input.setRange(0, 100)
+        self.Imaging_Interval_input.setRange(1, 100)
         self.Imaging_Interval_input.setValue(5)
         Imaging_Interval_layout.addWidget(Imaging_Interval_label)
         Imaging_Interval_layout.addWidget(self.Imaging_Interval_input)
@@ -249,44 +241,71 @@ class MainWindow(QMainWindow):
             self.file_input.setText(file_path)
 
     def submit_data(self):
-        self.experiment_file_path = self.file_input.text()
-        self.EE = self.EE_dropdown.currentText()
-        self.num_PnP_cycles = self.PnP_cycles_input.value()
-        self.imaging_interval = self.Imaging_Interval_input.value()
+        experiment_file_path = self.file_input.text()
+        ee = self.EE_dropdown.currentText()
+        num_pnp_cycles = self.PnP_cycles_input.value()
+        imaging_interval = self.Imaging_Interval_input.value()
 
-        if not self.experiment_file_path:
+        if not experiment_file_path:
             QMessageBox.warning(self, "Input Error", "Please select a file")
             return
-        
-        if self.num_PnP_cycles < self.imaging_interval:
-            QMessageBox.warning(self, "Input Error", "Imaging interval must be less than the number of PnP cycles")
+
+        if imaging_interval >= num_pnp_cycles:
+            QMessageBox.warning(self, "Input Error", "Imaging interval must be less than PnP cycles")
             return
-        
+
         self.Submit_button.setEnabled(False)
         self.file_button.setEnabled(False)
         self.EE_dropdown.setEnabled(False)
         self.PnP_cycles_input.setEnabled(False)
         self.Imaging_Interval_input.setEnabled(False)
-        print(f"Experiement File: ", self.experiment_file_path, "\nEnd Effector: ", self.EE, "\nPnP Cycles: ",self.num_PnP_cycles, "\nImaging Interval: ", self.imaging_interval)
-        self.dataHandler.experimentFilePath = self.experiment_file_path
-        self.dataHandler.EE = self.EE
-        self.dataHandler.numPnPCycles = self.num_PnP_cycles
-        self.dataHandler.imagingInterval = self.imaging_interval
-        self.dataInputsFlag = True  #Update Flag
-        self.flags_updated.emit()   #Send Signal to executer
-        self.dataHandler.readExperimentFile()
+
+        self.dataHandler.read_experiment_file(experiment_file_path, ee, num_pnp_cycles, imaging_interval)
         self.updateSensorInformation()
 
+        self.dataInputsFlag = True  #Update Flag
+        self.flags_updated.emit()   #Send Signal to executer
+    
+    # def submit_data(self):
+    #     self.experiment_file_path = self.file_input.text()
+    #     self.EE = self.EE_dropdown.currentText()
+    #     self.num_PnP_cycles = self.PnP_cycles_input.value()
+    #     self.imaging_interval = self.Imaging_Interval_input.value()
+
+    #     if not self.experiment_file_path:
+    #         QMessageBox.warning(self, "Input Error", "Please select a file")
+    #         return
+        
+    #     if self.num_PnP_cycles < self.imaging_interval:
+    #         QMessageBox.warning(self, "Input Error", "Imaging interval must be less than the number of PnP cycles")
+    #         return
+        
+    #     self.Submit_button.setEnabled(False)
+    #     self.file_button.setEnabled(False)
+    #     self.EE_dropdown.setEnabled(False)
+    #     self.PnP_cycles_input.setEnabled(False)
+    #     self.Imaging_Interval_input.setEnabled(False)
+    #     print(f"Experiement File: ", self.experiment_file_path, "\nEnd Effector: ", self.EE, "\nPnP Cycles: ",self.num_PnP_cycles, "\nImaging Interval: ", self.imaging_interval)
+    #     # self.dataHandler.experiment_file_path = self.experiment_file_path
+    #     # self.dataHandler.EE = self.EE
+    #     # self.dataHandler.num_pnp_cycles = self.num_PnP_cycles
+    #     # self.dataHandler.imaging_interval = self.imaging_interval
+    #     self.dataInputsFlag = True  #Update Flag
+    #     self.flags_updated.emit()   #Send Signal to executer
+    #     # self.dataHandler.read_experiment_file()
+    #     self.dataHandler.read_experiment_file(self.experiment_file_path, self.EE, self.num_PnP_cycles, self.imaging_interval)
+    #     self.updateSensorInformation()
+
     def updateSensorInformation(self):
-        self.sensor_grid_layout
-        for row in range(self.dataHandler.griddim[0]):
-            for col in range(self.dataHandler.griddim[1]):
-                sensorWidget = self.sensor_grid_layout.itemAtPosition(row, col).widget()
-                if sensorWidget:
-                    sensor = self.dataHandler.sensors[row][col]
-                    sensorWidget.updateID(sensor.ID)
-                    sensorWidget.updateCycles(sensor.PnPCycles)
-        print("Updated Sensors in UI")
+        for row in range(self.dataHandler.gelpak_dimensions[0]):
+            for col in range(self.dataHandler.gelpak_dimensions[1]):
+                sensor_widget = self.sensor_grid_layout.itemAtPosition(row, col).widget()
+                sensor = self.dataHandler.get_sensor(row, col)
+
+                if sensor_widget and sensor:
+                    sensor_widget.updateID(sensor["ID"])
+                    sensor_widget.updateCycles(sensor["PnP_cycles"])
+        print("Sensor information updated.")
 
     def liveCallback(self):
         img = QImage(self.CameraApp.buf, self.CameraApp.width, self.CameraApp.height, (self.CameraApp.width * 24 + 31) // 32 * 4, QImage.Format_RGB888)
@@ -306,7 +325,7 @@ class MainWindow(QMainWindow):
         print("Snap!")
         time = datetime.now()
         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-        self.CameraApp.snapImage(os.path.join(self.outputPath, timestamp))
+        self.CameraApp.snapImage(os.path.join(self.dataHandler.imagedir, timestamp))
 
     def checkCameraCalibration(self):
         self.CameraApp.calibrating = not self.CameraApp.calibrating
