@@ -10,8 +10,9 @@ import threading
 import os
 from PySide6.QtCore import Signal, QObject
 
-BASEVELOCITY = 15    #mm/s
-MAXVELOCITY = 25    ##mm/s
+CALIBRATIONVELOCITY = 15    ##mm/s
+BASEVELOCITY = 10    #mm/s
+MAXVELOCITY = 50    ##mm/s
 STEPSTODISTANCE = 0.025 #mm/step
 STAGELENGTH = 451   ##mm
 
@@ -50,7 +51,7 @@ class stage(QObject):
         print("Calibrating")
         dist = STAGELENGTH
         direction = False
-        stepFrequency, numSteps = self.getStepFrequencyAndNumSteps(dist)
+        stepFrequency, numSteps = self.getStepFrequencyAndNumSteps(dist, CALIBRATIONVELOCITY)
         self.sendMoveCommand(stepFrequency, numSteps, direction)
         self.motionFlag = True
         self.waitForStage()
@@ -173,4 +174,5 @@ class stage(QObject):
 if __name__ == '__main__':
     stage = stage()
     stage.calibrate()
-    stage.moveto(347)
+    # stage.moveto(347)
+    stage.moveto(40)

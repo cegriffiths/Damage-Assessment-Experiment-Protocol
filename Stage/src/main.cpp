@@ -29,6 +29,8 @@ void setup() {
 
   Serial.begin(921600);
   Serial.print("Setup Finished");
+  digitalWrite(ENABLE_OUT, LOW);
+
 }
 
 // Listening over serialBT for commands
@@ -98,7 +100,7 @@ void moveStage(int frequency, int steps, bool direction){
       // turn off motor and say the limit switch is triggered
       if ((limitSwitchTriggered && direction == 0)){
         // Turn off motor immediately
-        digitalWrite(ENABLE_OUT, HIGH);
+        // digitalWrite(ENABLE_OUT, HIGH);
         // Send signals
         SerialBT.println("LIMIT_STOP");
         Serial.println("Limit stop");
@@ -110,7 +112,7 @@ void moveStage(int frequency, int steps, bool direction){
       // turn off motor and say we manually stopped
       else if (limitSwitchTriggered && direction == 1 &&  i > 15){
         // Turn off motor immediately
-        digitalWrite(ENABLE_OUT, HIGH);
+        // digitalWrite(ENABLE_OUT, HIGH);
         // Send signals
         SerialBT.println("MANUAL_STOP");
         Serial.println("Manual stop");
@@ -132,7 +134,7 @@ void moveStage(int frequency, int steps, bool direction){
     }
 
     // Disable the motor
-    digitalWrite(ENABLE_OUT, HIGH);
+    // digitalWrite(ENABLE_OUT, HIGH);
     // Send completion message
     SerialBT.println("DONE_MOTION");
     Serial.println("Done Motion.");

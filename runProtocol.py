@@ -31,10 +31,6 @@ class executer(QObject):
         self.cameraApp = CA.App()
         self.dataHandler.log("Opened camera")
 
-
-        # self.robot = robotcontrol.RobotExt()
-        # self.robot.calibrate()
-
         self.stage = stage.stage()
         self.stage.calibrate()
         self.dataHandler.log("Calibrated stage")
@@ -49,6 +45,36 @@ class executer(QObject):
         self.change_state(self.state)
 
         self.UIHandler.show()
+
+### Attempt to make UI appear before calibrating stage
+
+    # def __init__(self):
+    #     super().__init__()
+
+    #     self.dataHandler = dataHandling.DataManager()
+    #     self.cameraApp = CA.App()
+
+    #     # Initialize UI first without objects
+    #     self.UIHandler = UIScript.MainWindow(dataHandler = self.dataHandler, CameraApp = self.cameraApp)
+    #     self.UIHandler.show()
+
+    #     self.stage = stage.stage()
+    #     self.stage.calibrate()
+
+    #     # Assign objects after initialization
+    #     self.UIHandler.set_stage(self.stage)
+    #     # self.UIHandler.set_dataHandler(self.dataHandler)
+    #     # self.UIHandler.set_cameraApp(self.cameraApp)
+
+    #     self.UIHandler.flags_updated.connect(self.checkFlags)
+
+    #     # self.update_state = Signal(str)
+    #     self.update_state.connect(self.UIHandler.updateExperimentState)
+
+    #     self.state = "Initializing"
+    #     self.change_state(self.state)
+
+    #     # self.UIHandler.show()
 
     def change_state(self, newState):
         self.state = newState
@@ -78,7 +104,7 @@ class executer(QObject):
                         sensor = self.dataHandler.get_sensor(row, col)
                         if sensor:  # Check if a sensor exists at this position
                             # Map column to stage position
-                            stage_position = {0: 60, 1: 50, 2: 40, 3: 30}.get(col)
+                            stage_position = {0: 60, 1: 40, 2: 30, 3: 20}.get(col)
                             if stage_position:
                                 self.stage.moveto(stage_position)
                                 self.snapImage(row, col)

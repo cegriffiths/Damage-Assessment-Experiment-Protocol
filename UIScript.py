@@ -55,20 +55,63 @@ class MainWindow(QMainWindow):
 
     flags_updated = Signal()
 
-    def __init__(self, stage, dataHandler=None, CameraApp=None):
+    # def __init__(self, stage, dataHandler=None, CameraApp=None):
+    #     super().__init__()
+    #     self.dataHandler = dataHandler or dataHandling.DataManager()
+    #     self.CameraApp = CameraApp or CA.App()
+    #     self.CameraApp.setLiveCallback(self.liveCallback)
+
+    #     self.stage = stage
+    #     self.stage.state_changed.connect(self.on_stage_state_update)
+    #     self.stage.position_changed.connect(self.on_stage_position_update)
+
+    #     self.dataInputsFlag = False
+    #     self.calibratedCameraFlag = False
+
+    #     self.initUI()
+    #     self.CameraApp.run()
+
+    def __init__(self, stage=None, dataHandler=None, CameraApp=None):
         super().__init__()
+
+        # Allow optional initialization with None, then set later if needed
         self.dataHandler = dataHandler or dataHandling.DataManager()
         self.CameraApp = CameraApp or CA.App()
-        self.CameraApp.setLiveCallback(self.liveCallback)
-
         self.stage = stage
-        self.stage.state_changed.connect(self.on_stage_state_update)
-        self.stage.position_changed.connect(self.on_stage_position_update)
 
+        # Set up the camera app callback
+        if self.CameraApp:
+            self.CameraApp.setLiveCallback(self.liveCallback)
+
+        # Set up stage signals if stage is provided
+        if self.stage:
+            self.stage.state_changed.connect(self.on_stage_state_update)
+            self.stage.position_changed.connect(self.on_stage_position_update)
+
+        # UI flags
         self.dataInputsFlag = False
         self.calibratedCameraFlag = False
 
         self.initUI()
+
+        # Start the camera app only if initialized
+        if self.CameraApp:
+            self.CameraApp.run()
+
+    def set_stage(self, stage):
+        """Set the stage object after initialization and connect signals."""
+        self.stage = stage
+        self.stage.state_changed.connect(self.on_stage_state_update)
+        self.stage.position_changed.connect(self.on_stage_position_update)
+
+    def set_dataHandler(self, dataHandler):
+        """Set the dataHandler object after initialization."""
+        self.dataHandler = dataHandler
+
+    def set_cameraApp(self, CameraApp):
+        """Set the CameraApp object after initialization and assign callback."""
+        self.CameraApp = CameraApp
+        self.CameraApp.setLiveCallback(self.liveCallback)
         self.CameraApp.run()
 
     def initUI(self):
@@ -265,36 +308,6 @@ class MainWindow(QMainWindow):
 
         self.dataInputsFlag = True  #Update Flag
         self.flags_updated.emit()   #Send Signal to executer
-    
-    # def submit_data(self):
-    #     self.experiment_file_path = self.file_input.text()
-    #     self.EE = self.EE_dropdown.currentText()
-    #     self.num_PnP_cycles = self.PnP_cycles_input.value()
-    #     self.imaging_interval = self.Imaging_Interval_input.value()
-
-    #     if not self.experiment_file_path:
-    #         QMessageBox.warning(self, "Input Error", "Please select a file")
-    #         return
-        
-    #     if self.num_PnP_cycles < self.imaging_interval:
-    #         QMessageBox.warning(self, "Input Error", "Imaging interval must be less than the number of PnP cycles")
-    #         return
-        
-    #     self.Submit_button.setEnabled(False)
-    #     self.file_button.setEnabled(False)
-    #     self.EE_dropdown.setEnabled(False)
-    #     self.PnP_cycles_input.setEnabled(False)
-    #     self.Imaging_Interval_input.setEnabled(False)
-    #     print(f"Experiement File: ", self.experiment_file_path, "\nEnd Effector: ", self.EE, "\nPnP Cycles: ",self.num_PnP_cycles, "\nImaging Interval: ", self.imaging_interval)
-    #     # self.dataHandler.experiment_file_path = self.experiment_file_path
-    #     # self.dataHandler.EE = self.EE
-    #     # self.dataHandler.num_pnp_cycles = self.num_PnP_cycles
-    #     # self.dataHandler.imaging_interval = self.imaging_interval
-    #     self.dataInputsFlag = True  #Update Flag
-    #     self.flags_updated.emit()   #Send Signal to executer
-    #     # self.dataHandler.read_experiment_file()
-    #     self.dataHandler.read_experiment_file(self.experiment_file_path, self.EE, self.num_PnP_cycles, self.imaging_interval)
-    #     self.updateSensorInformation()
 
     def updateSensorInformation(self):
         for row in range(self.dataHandler.gelpak_dimensions[0]):
@@ -348,23 +361,6 @@ class MainWindow(QMainWindow):
     def on_stage_position_update(self, position):
         self.stage_currentPos_label.setText(f"Position: {position}")
         print("In stage position update")
-
-    # def updateComponents(self):
-    #     print("updating")
-    #     # Uncomment when stage is working
-    #     if self.stage.motionFlag == True and self.stage.manualStopFlag == False:
-    #         self.stage_state_label = QLabel("State: Moving")
-    #     elif self.stage.motionFlag == False and self.stage.manualStopFlag == True:
-    #         self.stage_state_label = QLabel("State: Manual Stop")
-    #     elif self.stage.motionFlag == False and self.stage.manualStopFlag == False:
-    #         self.stage_state_label = QLabel("State: In Position")
-    #     else:
-    #         self.stage_state_label = QLabel("State: Unknown")
-
-    #     self.stage_currentPos_label = QLabel(f"Current Position: {self.stage.position}")
-
-    #     # self.robot_state_label = QLabel(f"State: {self.robot.state}")
-
 
 
 # Run the application
