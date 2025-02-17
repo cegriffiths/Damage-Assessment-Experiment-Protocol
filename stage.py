@@ -10,8 +10,8 @@ import threading
 import os
 from PySide6.QtCore import Signal, QObject
 
-CALIBRATIONVELOCITY = 15    ##mm/s
 BASEVELOCITY = 10    #mm/s
+BASEACCELERATION = 1   #mm/s^2
 MAXVELOCITY = 50    ##mm/s
 STEPSTODISTANCE = 0.025 #mm/step
 STAGELENGTH = 451   ##mm
@@ -32,6 +32,11 @@ class stage(QObject):
             self.bluetooth_serial = serial.Serial("COM7", 921600)
             ## Linux
             # self.bluetooth_serial = serial.Serial("/dev/rfcomm0", 921600)
+
+            if self.bluetooth_serial.is_open:
+                print("Bluetooth serial is open.")
+            else:
+                print("Bluetooth serial is closed.")
             print("BT Connected")
         except serial.serialutil.SerialException as e:
             self.bluetooth_serial = None
@@ -51,8 +56,8 @@ class stage(QObject):
         print("Calibrating")
         dist = STAGELENGTH
         direction = False
-        stepFrequency, numSteps = self.getStepFrequencyAndNumSteps(dist, CALIBRATIONVELOCITY)
-        self.sendMoveCommand(stepFrequency, numSteps, direction)
+        numSteps, stepFrequency, deltaFrequency = self.getStepFrequencyAndNumSteps(dist)
+        self.sendMoveCommand(numSteps, stepFrequency, deltaFrequency, direction)
         self.motionFlag = True
         self.waitForStage()
         self.position = 0
@@ -68,8 +73,8 @@ class stage(QObject):
             # direction = False ## Towards end without motor
             # direction = True ## Towards end with motor
             ## Convert distance and velocity to frequency of steps, and number of steps
-            stepFrequency, numSteps = self.getStepFrequencyAndNumSteps(dist)
-            self.sendMoveCommand(stepFrequency, numSteps, direction)
+            numSteps, stepFrequency, deltaFrequency = self.getStepFrequencyAndNumSteps(dist)
+            self.sendMoveCommand(numSteps, stepFrequency, deltaFrequency, direction)
             ## Set motion flag to true and then wait for stage to stop
             print("Moving Stage")
             self.motionFlag = True
@@ -87,16 +92,17 @@ class stage(QObject):
             time.sleep(1)
             print("waiting")
 
-    def getStepFrequencyAndNumSteps(self, distance, velocity=BASEVELOCITY):
+    def getStepFrequencyAndNumSteps(self, distance, velocity=BASEVELOCITY, acceleration=BASEACCELERATION):
         numSteps = distance/STEPSTODISTANCE
         stepFrequency = velocity/STEPSTODISTANCE
-        return stepFrequency, numSteps
+        deltaFrequency = 2*acceleration/velocity
+        return numSteps, stepFrequency, deltaFrequency
 
-    def sendMoveCommand(self, stepFrequency, numSteps, direction):
+    def sendMoveCommand(self, numSteps, stepFrequency, deltaFrequency, direction):
         print("Sending Command")
-        command = f"{stepFrequency},{numSteps},{int(direction)}\n"
+        command = f"{numSteps},{stepFrequency},{deltaFrequency},{int(direction)}\n"
         self.bluetooth_serial.write(command.encode())
-        print(F"Sent command:{stepFrequency},{numSteps},{int(direction)}")
+        print(F"Sent command:{numSteps},{stepFrequency},{deltaFrequency},{int(direction)}")
         time.sleep(0.1)
 
     def listen_for_limit_switch(self):
@@ -175,4 +181,5 @@ if __name__ == '__main__':
     stage = stage()
     stage.calibrate()
     # stage.moveto(347)
-    stage.moveto(40)
+    stage.moveto(75)
+    stage.moveto(30)
