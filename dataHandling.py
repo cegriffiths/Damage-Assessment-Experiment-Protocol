@@ -111,6 +111,8 @@
 import json
 from datetime import datetime
 import os
+import sys
+import logging
 from typing import List, Dict, Optional
 
 class DataManager:
@@ -124,6 +126,7 @@ class DataManager:
         self.EE: Optional[str] = None  # EE being used
         self.num_pnp_cycles: Optional[int] = None  # Number of PnP cycles to perform per sensor
         self.imaging_interval: Optional[int] = None  # Imaging interval
+        self.current_row = 1
         
         # Sensor information
         self.gelpak_id: Optional[str] = None  # GelPak ID
@@ -151,7 +154,7 @@ class DataManager:
         
         # Load sensor information
         self.sensors = experiment_data.get("grid", [])
-        print(f"Experiment file '{experiment_file_path}' read successfully.")
+        print(f"DATA: Experiment file '{experiment_file_path}' read successfully.")
 
     def update_experiment_file(self):
         """Update the experiment file with the current data."""
@@ -168,7 +171,7 @@ class DataManager:
         
         with open(self.experiment_file_path, "w") as f:
             json.dump(experiment_data, f, indent=4)
-        print(f"Experiment file '{self.experiment_file_path}' updated successfully.")
+        print(f"DATA: Experiment file '{self.experiment_file_path}' updated successfully.")
 
     def create_log(self):
         """Create a log file for the experiment."""
@@ -176,21 +179,71 @@ class DataManager:
         #     raise ValueError("GelPak ID is not set.")
         
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.log_file_path = os.path.join(self.log_dir, f"{self.gelpak_id}_log_{timestamp}.txt")
+        filename = f"{self.gelpak_id}_log_{timestamp}.txt" if self.gelpak_id else f"unnamed_log_{timestamp}.txt"
+
+        self.log_file_path = os.path.join(self.log_dir, filename)
         
-        with open(self.log_file_path, "w") as file:
-            file.write(f"Log begins at {timestamp}\n")
-        print(f"Log file '{self.log_file_path}' created successfully.")
+        logging.basicConfig(filename=self.log_file_path, level=logging.INFO, format="[%(asctime)s] %(message)s")
+        sys.stdout = self
+        sys.stderr = self
+
+        print(f"DATA: Log file '{self.log_file_path}' created successfully.")
+    
+    def rename_log(self):
+        """Rename log file when GelPak ID becomes available."""
+        print(f"DATA: Renaming Log File with GelPak: {self.gelpak_id}")
+        if not self.gelpak_id or not self.log_file_path:
+            return  # No need to rename if there's no GelPak ID or log file
+
+        new_filename = f"{self.gelpak_id}_log_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
+        new_path = os.path.join(self.log_dir, new_filename)
+
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
+
+        logging.shutdown()  # Force close all log files and handlers
+
+        # **Remove all existing logging handlers**
+        for handler in logging.root.handlers[:]:
+            logging.root.removeHandler(handler)
+
+        try:
+            os.rename(self.log_file_path, new_path)
+
+            sys.stdout = self
+            sys.stderr = self
+
+            # Reconfigure logging to use the new file
+            logging.basicConfig(filename=new_path, level=logging.INFO, format="[%(asctime)s] %(message)s")
+
+            print(f"DATA: Log file renamed from '{self.log_file_path}' to '{new_path}'")
+            self.log_file_path = new_path  # Update reference
+
+        except OSError as e:
+            print(f"DATA: Failed to rename log file: {e}")
 
     def log(self, message: str):
         """Append a message to the log file."""
         if not self.log_file_path:
             raise ValueError("Log file path is not set.")
         
-        timestamp = datetime.now().strftime("%Y-%m-%d %H-%M-%S.%f")
-        with open(self.log_file_path, "a") as file:
-            file.write(f"[{timestamp}] {message}\n")
-        print(f"Appended '{message}' to log file.")
+        # timestamp = datetime.now().strftime("%Y-%m-%d %H-%M-%S.%f")
+        # with open(self.log_file_path, "a") as file:
+        #     file.write(f"[{timestamp}] {message}\n")
+        # print(f"Appended '{message}' to log file.")
+
+        logging.info(message)
+        sys.__stdout__.write(message + '\n')
+        sys.__stdout__.flush()
+
+    def write(self, message: str):
+        """Overwrite function for stdout/stderr redirection"""
+        if message.strip():
+            self.log(message)
+
+    def flush(self):
+        """Needed for compatibility with sdtout redirection"""
+        pass
 
     def get_sensor(self, row: int, col: int) -> Optional[Dict]:
         """Get sensor information by row and column."""
@@ -204,18 +257,18 @@ class DataManager:
         sensor = self.get_sensor(row, col)
         if sensor:
             sensor["PnP_cycles"] += 1
-            print(f"Incremented PnP cycles for sensor at row {row}, col {col}.")
+            print(f"DATA: Incremented PnP cycles for sensor at row {row}, col {col}.")
         else:
-            print(f"No sensor found at row {row}, col {col}.")
+            print(f"DATA: No sensor found at row {row}, col {col}.")
 
     def increment_num_photos(self, row: int, col: int):
         """Increment the number of photos for a sensor."""
         sensor = self.get_sensor(row, col)
         if sensor:
             sensor["photos"] += 1
-            print(f"Incremented photos for sensor at row {row}, col {col}.")
+            print(f"DATA: Incremented photos for sensor at row {row}, col {col}.")
         else:
-            print(f"No sensor found at row {row}, col {col}.")
+            print(f"DATA: No sensor found at row {row}, col {col}.")
 
     def add_sensor(self, sensor_id: str, row: int, col: int, pnp_cycles: int = 0, photos: int = 0):
         """Add a new sensor to the grid."""
@@ -230,8 +283,13 @@ class DataManager:
             "photos": photos
         }
         self.sensors.append(sensor)
-        print(f"Added sensor '{sensor_id}' at row {row}, col {col}.")
+        print(f"DATA: Added sensor '{sensor_id}' at row {row}, col {col}.")
 
     def get_gelpak_dimensions(self) -> List[int]:
         """Get the dimensions of the GelPak."""
         return self.gelpak_dimensions
+    
+    def increment_row(self):
+        """Increment the current row"""
+        self.current_row = self.current_row + 1
+        print(f"DATA: Current row updated to {self.current_row}")

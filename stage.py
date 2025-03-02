@@ -10,8 +10,9 @@ import threading
 import os
 from PySide6.QtCore import Signal, QObject
 
-BASEVELOCITY = 10    #mm/s
-BASEACCELERATION = 1   #mm/s^2
+BASEVELOCITY = 30    #mm/s
+CALIBRATIONVELOCITY = 20 #mm/s
+BASEACCELERATION = 50   #mm/s^2
 MAXVELOCITY = 50    ##mm/s
 STEPSTODISTANCE = 0.025 #mm/step
 STAGELENGTH = 451   ##mm
@@ -26,28 +27,10 @@ class stage(QObject):
 
     def __init__(self):
         super().__init__()
-        ## It is COM7 on my laptop, might be different on other devices
-        # try:
-        #     ## Windows
-        #     # self.bluetooth_serial = serial.Serial("COM7", 921600)
-        #     ## Linux
-        #     self.bluetooth_serial = serial.Serial("/dev/rfcomm0", 921600)
-
-        #     if self.bluetooth_serial.is_open:
-        #         print("Bluetooth serial is open.")
-        #     else:
-        #         print("Bluetooth serial is closed.")
-
-        #     print("BT Connected")
-        # except serial.serialutil.SerialException as e:
-        #     self.bluetooth_serial = None
-        #     print("COM7 not open, error:", e)
-
         #ESP32 Connection over USB on windows
         # self.esp32serial = serial.Serial('COM5', 921600)
         #ESP32 Connection over USB on Linux (TODO)
         self.esp32serial = serial.Serial('/dev/ttyUSB0', 921600)
-
 
 
         listener_thread = threading.Thread(target=self.listen_for_limit_switch, daemon=True)
@@ -57,20 +40,18 @@ class stage(QObject):
         self._motionFlag = False
         self._manualStopFlag = False
         self._state = "Unknown"
-        # self.calibrate()
 
     def calibrate(self):
         '''Calibrates the linear stage'''
         ## Attempts to move the stage backwards the distance of the stage so it will reach the limit switch
-        print("Calibrating")
+        # print("STAGE: Calibrating")
         dist = STAGELENGTH
         direction = False
-        numSteps, stepFrequency, deltaFrequency = self.getStepFrequencyAndNumSteps(dist)
-        self.sendMoveCommand(numSteps, stepFrequency, deltaFrequency, direction)
+        self.sendMoveCommand2(direction, dist, CALIBRATIONVELOCITY)
         self.motionFlag = True
         self.waitForStage()
         self.position = 0
-        print("Calibration Complete\n")
+        print("STAGE: Calibration Complete\n")
 
     def moveto(self, position, velocity = BASEVELOCITY):
         '''Moves the linear stage to a position'''
@@ -81,44 +62,33 @@ class stage(QObject):
             direction = True if self._position < position else False
             # direction = False ## Towards end without motor
             # direction = True ## Towards end with motor
-            ## Convert distance and velocity to frequency of steps, and number of steps
-            numSteps, stepFrequency, deltaFrequency = self.getStepFrequencyAndNumSteps(dist)
-            self.sendMoveCommand(numSteps, stepFrequency, deltaFrequency, direction)
+            self.sendMoveCommand2(direction, dist)
             ## Set motion flag to true and then wait for stage to stop
-            print("Moving Stage")
+            print("STAGE: Moving Stage")
             self.motionFlag = True
             self.waitForStage()
             ## Set new position
             self.position = self._position + dist if direction else self._position - dist
-            print("Moved stage to ", self._position, "with velocity ", velocity, "\n")
+            print(f"STAGE: Moved to {self._position} with velocity {velocity}\n")
             # print("Distance: ", dist, " Frequency: ", stepFrequency, " Steps: ", numSteps, " Direction: ", direction)
         else:
-            print("Position or velocity are out of range")
+            print("STAGE: Position or velocity are out of range")
 
     def waitForStage(self):
         '''Waits for the stage to finish moving'''
         while self._motionFlag:
             time.sleep(1)
-            print("waiting")
+            # print("STAGE: moving")
 
-    def getStepFrequencyAndNumSteps(self, distance, velocity=BASEVELOCITY, acceleration=BASEACCELERATION):
-        numSteps = distance/STEPSTODISTANCE
-        stepFrequency = velocity/STEPSTODISTANCE
-        deltaFrequency = 2*acceleration/velocity
-        return numSteps, stepFrequency, deltaFrequency
-
-    def sendMoveCommand(self, numSteps, stepFrequency, deltaFrequency, direction):
-        print("Sending Command")
-        command = f"{numSteps},{stepFrequency},{deltaFrequency},{int(direction)}\n"
-
-        # self.bluetooth_serial.write(command.encode())
+    def sendMoveCommand2(self, direction, distance, velocity=BASEVELOCITY, acceleration=BASEACCELERATION):
+        print("STAGE: Sending Command")
+        command = f"{distance},{velocity},{acceleration},{int(direction)}\n"
         self.esp32serial.write(command.encode())
-
-        print(F"Sent command:{numSteps},{stepFrequency},{deltaFrequency},{int(direction)}")
-        time.sleep(0.1)
+        print(F"STAGE: Sent command:{distance},{velocity},{acceleration},{int(direction)}")
 
     def listen_for_limit_switch(self):
         '''Function to listen for messages from ESP32 in a seperate thread'''
+        time.sleep(0.5)
         while True:
             # if self.bluetooth_serial.in_waiting > 0:
             if self.esp32serial.in_waiting > 0:    
@@ -127,17 +97,17 @@ class stage(QObject):
                 if message == "LIMIT_STOP":
                     self.position = 0
                     self.motionFlag = False
-                    print("Stage Home")
+                    print("STAGE: Home")
                 elif message == "MANUAL_STOP":
                     self.motionFlag = False
                     self.manualStopFlag = True
-                    print("Manual Stop")
+                    print("STAGE: Manual Stop")
                     os._exit(0)
                 elif message == "DONE_MOTION":
                     self.motionFlag = False
-                    print("Stage is in place")
+                    print("STAGE: In place")
                 else:
-                    print("Received message:", message)
+                    print("STAGE: Received message:" + message)
             time.sleep(0.1)
 
     def calculate_state(self):
@@ -150,7 +120,7 @@ class stage(QObject):
         else:
             self.state = "Unknown"
         
-        print("Stage state updated: " + self._state)
+        print("STAGE: State updated: " + self._state)
 
     @property
     def motionFlag(self):
@@ -187,7 +157,7 @@ class stage(QObject):
     def position(self, value):
         self._position = value
         self.position_changed.emit(self._position)
-        print("Position: ", self._position)
+        # print(f"Position: {self._position}")
 
 
 

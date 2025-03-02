@@ -318,7 +318,7 @@ class MainWindow(QMainWindow):
                 if sensor_widget and sensor:
                     sensor_widget.updateID(sensor["ID"])
                     sensor_widget.updateCycles(sensor["PnP_cycles"])
-        print("Sensor information updated.")
+        print("UI: Sensor information updated.")
 
     def liveCallback(self):
         img = QImage(self.CameraApp.buf, self.CameraApp.width, self.CameraApp.height, (self.CameraApp.width * 24 + 31) // 32 * 4, QImage.Format_RGB888)
@@ -335,7 +335,7 @@ class MainWindow(QMainWindow):
         self.CameraApp.closeCam()
 
     def snapImage(self):
-        print("Snap!")
+        print("UI: Snap!")
         time = datetime.now()
         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
         self.CameraApp.snapImage(os.path.join(self.dataHandler.imagedir, timestamp))
@@ -360,7 +360,7 @@ class MainWindow(QMainWindow):
 
     def on_stage_position_update(self, position):
         self.stage_currentPos_label.setText(f"Position: {position}")
-        print("In stage position update")
+        print("UI: In stage position update")
 
 
 # Run the application
