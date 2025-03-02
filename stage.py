@@ -10,8 +10,9 @@ import threading
 import os
 from PySide6.QtCore import Signal, QObject
 
-BASEVELOCITY = 10    #mm/s
-BASEACCELERATION = 1   #mm/s^2
+BASEVELOCITY = 30    #mm/s
+CALIBRATIONVELOCITY = 20 #mm/s
+BASEACCELERATION = 50   #mm/s^2
 MAXVELOCITY = 50    ##mm/s
 STEPSTODISTANCE = 0.025 #mm/step
 STAGELENGTH = 451   ##mm
@@ -26,27 +27,9 @@ class stage(QObject):
 
     def __init__(self):
         super().__init__()
-        ## It is COM7 on my laptop, might be different on other devices
-        # try:
-        #     ## Windows
-        #     # self.bluetooth_serial = serial.Serial("COM7", 921600)
-        #     ## Linux
-        #     self.bluetooth_serial = serial.Serial("/dev/rfcomm0", 921600)
-
-        #     if self.bluetooth_serial.is_open:
-        #         print("Bluetooth serial is open.")
-        #     else:
-        #         print("Bluetooth serial is closed.")
-
-        #     print("BT Connected")
-        # except serial.serialutil.SerialException as e:
-        #     self.bluetooth_serial = None
-        #     print("COM7 not open, error:", e)
-
         #ESP32 Connection over USB on windows
         self.esp32serial = serial.Serial('COM5', 921600)
         #ESP32 Connection over USB on Linux (TODO)
-
 
         listener_thread = threading.Thread(target=self.listen_for_limit_switch, daemon=True)
         listener_thread.start()
@@ -55,7 +38,6 @@ class stage(QObject):
         self._motionFlag = False
         self._manualStopFlag = False
         self._state = "Unknown"
-        # self.calibrate()
 
     def calibrate(self):
         '''Calibrates the linear stage'''
@@ -63,8 +45,7 @@ class stage(QObject):
         print("Calibrating")
         dist = STAGELENGTH
         direction = False
-        numSteps, stepFrequency, deltaFrequency = self.getStepFrequencyAndNumSteps(dist)
-        self.sendMoveCommand(numSteps, stepFrequency, deltaFrequency, direction)
+        self.sendMoveCommand2(direction, dist, CALIBRATIONVELOCITY)
         self.motionFlag = True
         self.waitForStage()
         self.position = 0
@@ -79,9 +60,7 @@ class stage(QObject):
             direction = True if self._position < position else False
             # direction = False ## Towards end without motor
             # direction = True ## Towards end with motor
-            ## Convert distance and velocity to frequency of steps, and number of steps
-            numSteps, stepFrequency, deltaFrequency = self.getStepFrequencyAndNumSteps(dist)
-            self.sendMoveCommand(numSteps, stepFrequency, deltaFrequency, direction)
+            self.sendMoveCommand2(direction, dist)
             ## Set motion flag to true and then wait for stage to stop
             print("Moving Stage")
             self.motionFlag = True
@@ -99,24 +78,15 @@ class stage(QObject):
             time.sleep(1)
             print("waiting")
 
-    def getStepFrequencyAndNumSteps(self, distance, velocity=BASEVELOCITY, acceleration=BASEACCELERATION):
-        numSteps = distance/STEPSTODISTANCE
-        stepFrequency = velocity/STEPSTODISTANCE
-        deltaFrequency = 2*acceleration/velocity
-        return numSteps, stepFrequency, deltaFrequency
-
-    def sendMoveCommand(self, numSteps, stepFrequency, deltaFrequency, direction):
+    def sendMoveCommand2(self, direction, distance, velocity=BASEVELOCITY, acceleration=BASEACCELERATION):
         print("Sending Command")
-        command = f"{numSteps},{stepFrequency},{deltaFrequency},{int(direction)}\n"
-
-        # self.bluetooth_serial.write(command.encode())
+        command = f"{distance},{velocity},{acceleration},{int(direction)}\n"
         self.esp32serial.write(command.encode())
-
-        print(F"Sent command:{numSteps},{stepFrequency},{deltaFrequency},{int(direction)}")
-        time.sleep(0.1)
+        print(F"Sent command:{distance},{velocity},{acceleration},{int(direction)}")
 
     def listen_for_limit_switch(self):
         '''Function to listen for messages from ESP32 in a seperate thread'''
+        time.sleep(0.5)
         while True:
             # if self.bluetooth_serial.in_waiting > 0:
             if self.esp32serial.in_waiting > 0:    

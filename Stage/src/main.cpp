@@ -1,5 +1,4 @@
 #include <Arduino.h>
-// #include <BluetoothSerial.h>
 
 // Pin definitions
 #define SIGNAL_OUT 12
@@ -7,14 +6,15 @@
 #define ENABLE_OUT 14
 #define LIMIT_SWITCH_IN 15
 
-const int pwmChannel = 0;
-// BluetoothSerial SerialBT;
+#define STEPS_TO_DISTANCE 0.025 // mm/step
+
 volatile bool limitSwitchTriggered = false;
 
 // Function definitions
 void moveStage(int, int, int, bool);
 void parseCommand(String command);
 void IRAM_ATTR onLimitSwitchPress();
+bool checkSwitch(int, int);
 
 // Initiate pins and serials
 void setup() {
@@ -25,12 +25,9 @@ void setup() {
 
   attachInterrupt(digitalPinToInterrupt(LIMIT_SWITCH_IN), onLimitSwitchPress, FALLING);
 
-  // SerialBT.begin("ESP32StepperControl");
-
   Serial.begin(921600);
-  Serial.print("Setup Finished!");
-  // digitalWrite(ENABLE_OUT, LOW);
-
+  Serial.print("Setup Finished");
+  digitalWrite(ENABLE_OUT, LOW);
 }
 
 // Listening over serialBT for commands
@@ -44,16 +41,7 @@ void loop() {
     parseCommand(command);
   }
 
-  // // Check if the limit switch is triggered
-  // if (limitSwitchTriggered){
-  //   // Send signals
-  //   SerialBT.println("LIMIT_SWITCH_TRIGGERED");
-  //   Serial.println("Limit switch triggered.");
-  //   limitSwitchTriggered = false;
-  // }
-
   delay(10);
-  // Serial.println("looping");
 }
 
 // Take inputs over bluetooth
@@ -65,20 +53,14 @@ void parseCommand(String command){
   int thirdcomma = command.indexOf(',', secondcomma + 1);
 
   // Split command string into expected variables
-  int steps = command.substring(0, firstcomma).toInt();
-  int frequency = command.substring(firstcomma, secondcomma).toInt();
-  int delta = command.substring(secondcomma, thirdcomma).toInt();
+  int distance = command.substring(0, firstcomma).toInt();
+  int velocity = command.substring(firstcomma+1, secondcomma).toInt();
+  int acceleration = command.substring(secondcomma+1, thirdcomma).toInt();
   bool direction = command.substring(thirdcomma + 1).toInt() == 1;
 
-  Serial.printf("Steps: %d, Frequency: %d, Delta: %d, Direction: %d\n", steps, frequency, delta, direction);
+  Serial.printf("Distance: %d, Velocity: %d, Acceleration: %d, Direction: %d\n", distance, velocity, acceleration, direction);
 
-  // int frequency = command.substring(0, firstcomma).toInt();
-  // int steps = command.substring(firstcomma + 1, secondcomma).toInt();
-  // bool direction = command.substring(secondcomma + 1).toInt() == 1;
-
-  // Serial.printf("Frequency: %d, Steps: %d, Direction: %d\n", frequency, steps, direction);
-
-  moveStage(steps, frequency, delta, direction);
+  moveStage(distance, velocity, acceleration, direction);
 }
 
 // Moves linear stage
@@ -86,24 +68,32 @@ void parseCommand(String command){
 // Outputs a square wave to a specified pin with the given frequency and a number of periods equaling the number of steps
 // Outputs a direction boolean to another specified pin
 // Toggles an enable pin at the beginning and end of the function
-void moveStage(int steps, int frequency, int delta, bool direction){
+void moveStage(int distance, int velocity, int acceleration, bool direction){
   // If going towards home and already home, to not move motor
   if (direction == 0 && digitalRead(LIMIT_SWITCH_IN) == LOW){
-    // Send signals
-    // SerialBT.println("LIMIT_STOP");
-    Serial.println("Already home: Limit stop");
+    // Send signal
+    Serial.println("LIMIT_STOP");
   }
   else{
-    // Set half period at full velocity
-    int halfPeriod = 500000 / frequency;
+    // Define distances and derivative in terms of steps
+    int total_steps = distance / STEPS_TO_DISTANCE;
+    int vel_steps = velocity / STEPS_TO_DISTANCE;
+    int accel_steps = acceleration / STEPS_TO_DISTANCE;
 
-    int halfPeriodDelta = 500000 / delta;
-    int accelHalfPeriod = 500000 / delta;
+    // Find distances to travel while accelerating, decelerating or moving at constant speed
+    int accel_steps_count = (vel_steps*vel_steps) / (2*accel_steps);
+    int const_steps_count = total_steps - 2*accel_steps_count;
 
-    // Number of steps to complete acceleration
-    int Na = frequency / delta;
-    // Number of steps at constant velocity
-    int Nv = steps - 2*Na;
+    // If it takes over half the distance to accelerate, just accelerate for half the distance then decelerate
+    if (const_steps_count < 0){
+      accel_steps_count = total_steps/2;
+      const_steps_count = 0;
+    }
+
+    Serial.printf("Total Steps: %d, Accel Steps: %d\n", total_steps, accel_steps_count);
+
+    // Stage State variables
+    int step_delay = 0;
 
     // Enable the motor
     digitalWrite(ENABLE_OUT, LOW);
@@ -112,196 +102,87 @@ void moveStage(int steps, int frequency, int delta, bool direction){
     // Write the direction to the motor
     digitalWrite(DIRECTION_OUT, direction);
 
-    // Send pulses to the motor (one pulse per step) for acceleration
-    for (int i = 0; i < Na; i++){
-      // If we are going towards home and limit switch is triggered, 
-      // turn off motor and say the limit switch is triggered
-      if ((limitSwitchTriggered && direction == 0)){
-        // Turn off motor immediately
-        digitalWrite(ENABLE_OUT, HIGH);
-        // Send signals
-        // SerialBT.println("LIMIT_STOP");
-        Serial.println("Limit stop");
-        // Flip Flag
-        limitSwitchTriggered = false;
+    // For loop for motion
+    for(int step_count = 0; step_count < total_steps; step_count++){
+      // Check if the stage should keep moving
+      bool keepMoving = !checkSwitch(direction, step_count);
+
+      // Check if stage should be accelerating
+      if(step_count < accel_steps_count && keepMoving){
+        step_delay = 1000000 / sqrt(2 * accel_steps * (step_count + 1));
+        if(step_count == 0){
+          Serial.println("Accelerating");
+        }
+      }
+      // Check if stage should be at constant velocity
+      else if(step_count < (accel_steps_count + const_steps_count) && keepMoving){
+        step_delay = 1000000 / vel_steps;
+        if(step_count == accel_steps_count){
+          Serial.println("Const Speed");
+        }
+      }
+      // Check if stage should be decelerating
+      else if(keepMoving){
+        step_delay = 1000000 / sqrt(2 * accel_steps * (total_steps - step_count));
+        if(step_delay == accel_steps_count + const_steps_count){
+          Serial.println("Decelerating");
+        }
+      }
+      // Check if stage should stop
+      else if(!keepMoving){
         return;
       }
-      // If we are going away from home and are out of the range of the limit switch and the limit switch is triggered,
-      // turn off motor and say we manually stopped
-      else if (limitSwitchTriggered && direction == 1 &&  i > 15){
-        // Turn off motor immediately
-        digitalWrite(ENABLE_OUT, HIGH);
-        // Send signals
-        // SerialBT.println("MANUAL_STOP");
-        Serial.println("Manual stop");
-        // Flip Flag
-        limitSwitchTriggered = false;
-        return;
-      }
-      // If we are going away from home and are in range of the limit switch and it is triggered (unpressing bounce),
-      // re-enable the motor and keep going
-      else if (limitSwitchTriggered && direction == 1){
-        digitalWrite(ENABLE_OUT, LOW);
-        limitSwitchTriggered = false;
-      }
+      
       // Do one full cycle
       digitalWrite(SIGNAL_OUT, HIGH);
-      delayMicroseconds(halfPeriodDelta*(i + 1));
+      delayMicroseconds(step_delay/2);
       digitalWrite(SIGNAL_OUT, LOW);
-      delayMicroseconds(halfPeriodDelta*(i + 1));
-      Serial.printf("Step: %d\tHalf Period: %d\n", i, halfPeriodDelta*(i + 1));
+      delayMicroseconds(step_delay/2);
     }
-
-
-
-    // Send pulses to the motor (one pulse per step) for constant velocity
-    for (int i = 0; i < Nv; i++){
-      // If we are going towards home and limit switch is triggered, 
-      // turn off motor and say the limit switch is triggered
-      if ((limitSwitchTriggered && direction == 0)){
-        // Turn off motor immediately
-        digitalWrite(ENABLE_OUT, HIGH);
-        // Send signals
-        // SerialBT.println("LIMIT_STOP");
-        Serial.println("Limit stop");
-        // Flip Flag
-        limitSwitchTriggered = false;
-        return;
-      }
-      // If we are going away from home and are out of the range of the limit switch and the limit switch is triggered,
-      // turn off motor and say we manually stopped
-      else if (limitSwitchTriggered && direction == 1 &&  i > 15){
-        // Turn off motor immediately
-        digitalWrite(ENABLE_OUT, HIGH);
-        // Send signals
-        // SerialBT.println("MANUAL_STOP");
-        Serial.println("Manual stop");
-        // Flip Flag
-        limitSwitchTriggered = false;
-        return;
-      }
-      // If we are going away from home and are in range of the limit switch and it is triggered (unpressing bounce),
-      // re-enable the motor and keep going
-      else if (limitSwitchTriggered && direction == 1){
-        digitalWrite(ENABLE_OUT, LOW);
-        limitSwitchTriggered = false;
-      }
-      // Do one full cycle
-      digitalWrite(SIGNAL_OUT, HIGH);
-      delayMicroseconds(halfPeriod);
-      digitalWrite(SIGNAL_OUT, LOW);
-      delayMicroseconds(halfPeriod);
-      Serial.printf("Step: %d\n", i + Na + 1);
-    }
-
-
-
-    // Send pulses to the motor (one pulse per step) for decceleration
-    for (int i = 0; i < Na; i++){
-      // If we are going towards home and limit switch is triggered, 
-      // turn off motor and say the limit switch is triggered
-      if ((limitSwitchTriggered && direction == 0)){
-        // Turn off motor immediately
-        digitalWrite(ENABLE_OUT, HIGH);
-        // Send signals
-        // SerialBT.println("LIMIT_STOP");
-        Serial.println("Limit stop");
-        // Flip Flag
-        limitSwitchTriggered = false;
-        return;
-      }
-      // If we are going away from home and are out of the range of the limit switch and the limit switch is triggered,
-      // turn off motor and say we manually stopped
-      else if (limitSwitchTriggered && direction == 1 &&  i > 15){
-        // Turn off motor immediately
-        digitalWrite(ENABLE_OUT, HIGH);
-        // Send signals
-        // SerialBT.println("MANUAL_STOP");
-        Serial.println("Manual stop");
-        // Flip Flag
-        limitSwitchTriggered = false;
-        return;
-      }
-      // If we are going away from home and are in range of the limit switch and it is triggered (unpressing bounce),
-      // re-enable the motor and keep going
-      else if (limitSwitchTriggered && direction == 1){
-        digitalWrite(ENABLE_OUT, LOW);
-        limitSwitchTriggered = false;
-      }
-      // Do one full cycle
-      digitalWrite(SIGNAL_OUT, HIGH);
-      delayMicroseconds(halfPeriodDelta*(Na - i - 1));
-      digitalWrite(SIGNAL_OUT, LOW);
-      delayMicroseconds(halfPeriodDelta*(Na - i - 1));
-      Serial.printf("Step: %d\tHalf Period: %d\n", i, halfPeriodDelta*(Na - i - 1));
-    }
-
-
 
     // Disable the motor
     digitalWrite(ENABLE_OUT, HIGH);
     // Send completion message
-    // SerialBT.println("DONE_MOTION");
-    Serial.println("Done Motion.");
+    Serial.println("DONE_MOTION");
   }
-  
-  // else{
-  //   // Calculate the half period in microseconds
-  //   int halfPeriod = 500000 / frequency;
-
-  //   // Enable the motor
-  //   digitalWrite(ENABLE_OUT, LOW);
-  //   delay(10);
-
-  //   // Write the direction to the motor
-  //   digitalWrite(DIRECTION_OUT, direction);
-
-  //   // Send pulses to the motor (one pulse per step)
-  //   for (int i = 0; i < steps; i++){
-  //     // If we are going towards home and limit switch is triggered, 
-  //     // turn off motor and say the limit switch is triggered
-  //     if ((limitSwitchTriggered && direction == 0)){
-  //       // Turn off motor immediately
-  //       // digitalWrite(ENABLE_OUT, HIGH);
-  //       // Send signals
-  //       SerialBT.println("LIMIT_STOP");
-  //       Serial.println("Limit stop");
-  //       // Flip Flag
-  //       limitSwitchTriggered = false;
-  //       return;
-  //     }
-  //     // If we are going away from home and are out of the range of the limit switch and the limit switch is triggered,
-  //     // turn off motor and say we manually stopped
-  //     else if (limitSwitchTriggered && direction == 1 &&  i > 15){
-  //       // Turn off motor immediately
-  //       // digitalWrite(ENABLE_OUT, HIGH);
-  //       // Send signals
-  //       SerialBT.println("MANUAL_STOP");
-  //       Serial.println("Manual stop");
-  //       // Flip Flag
-  //       limitSwitchTriggered = false;
-  //       return;
-  //     }
-  //     // If we are going away from home and are in range of the limit switch and it is triggered (unpressing bounce),
-  //     // re-enable the motor and keep going
-  //     else if (limitSwitchTriggered && direction == 1){
-  //       digitalWrite(ENABLE_OUT, LOW);
-  //       limitSwitchTriggered = false;
-  //     }
-  //     // Do one full cycle
-  //     digitalWrite(SIGNAL_OUT, HIGH);
-  //     delayMicroseconds(halfPeriod);
-  //     digitalWrite(SIGNAL_OUT, LOW);
-  //     delayMicroseconds(halfPeriod);
-  //   }
-
-  //   // Disable the motor
-  //   // digitalWrite(ENABLE_OUT, HIGH);
-  //   // Send completion message
-  //   SerialBT.println("DONE_MOTION");
-  //   Serial.println("Done Motion.");
-  // }
 }
+
+// Check if the limit switch has been pressed and if the stage is in a place where it should stop motion
+bool checkSwitch(int direction, int step_count){
+  // If we are going towards home and limit switch is triggered, 
+  // turn off motor and say the limit switch is triggered
+  if ((limitSwitchTriggered && direction == 0)){
+    // Turn off motor immediately
+    digitalWrite(ENABLE_OUT, HIGH);
+    // Send signals
+    // SerialBT.println("LIMIT_STOP");
+    Serial.println("LIMIT_STOP");
+    // Flip Flag
+    limitSwitchTriggered = false;
+    return true;
+  }
+  // If we are going away from home and are out of the range of the limit switch and the limit switch is triggered,
+  // turn off motor and say we manually stopped
+  else if (limitSwitchTriggered && direction == 1 &&  step_count > 15){
+    // Turn off motor immediately
+    digitalWrite(ENABLE_OUT, HIGH);
+    // Send signals
+    // SerialBT.println("MANUAL_STOP");
+    Serial.println("MANUAL_STOP");
+    // Flip Flag
+    limitSwitchTriggered = false;
+    return true;
+  }
+  // If we are going away from home and are in range of the limit switch and it is triggered (unpressing bounce),
+  // re-enable the motor and keep going
+  else if (limitSwitchTriggered && direction == 1){
+    digitalWrite(ENABLE_OUT, LOW);
+    limitSwitchTriggered = false;
+  }
+  // Stage can keep going
+  return false;
+}
+
 
 // ISR on the limit switch
 void IRAM_ATTR onLimitSwitchPress(){
