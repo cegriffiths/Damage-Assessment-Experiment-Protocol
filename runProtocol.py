@@ -10,7 +10,7 @@ import stage
 import CameraApp as CA
 import dataHandling
 import UIScript
-# import robotcontrol
+import robotcontrol
 import os
 import threading
 import time
@@ -20,6 +20,13 @@ from PySide6.QtCore import Signal, QObject
 
 
 class executer(QObject):
+
+    SENSOR_POSITIONS = [
+        [0.0718, -0.449, 0.1123, 0, 3.14, 0],
+        [0.0718, -0.469, 0.1123, 0, 3.14, 0],
+        [0.0718, -0.489, 0.1123, 0, 3.14, 0],
+        [0.0718, -0.509, 0.1123, 0, 3.14, 0],
+        ]
 
     update_state = Signal(str)  # Signal which, when the state is updated here, calls the function in MainWindow
 
@@ -34,6 +41,10 @@ class executer(QObject):
         self.stage = stage.stage()
         self.stage.calibrate()
         self.dataHandler.log("Calibrated stage")
+
+        self.robot = robotcontrol.RobotExt()
+        self.robot.calibrate()
+        self.dataHandler.log("Calibrated robot")
 
         self.UIHandler = UIScript.MainWindow(self.stage, self.dataHandler, self.cameraApp)
         # self.stage.update_stage.connect(self.UIHandler.updateComponents)
@@ -97,24 +108,16 @@ class executer(QObject):
         time.sleep(1)
         self.change_state("Running")
 
+        #Row is manual here, it will need to be gotten from the UI somehow in the future.
+        self.image_row(row=1, go_back=False)
+
+        #Move stage to PnP location
+        self.stage.moveto(347)
+
+
         for row in range(self.dataHandler.gelpak_dimensions[0]):
+            
             for PnP in range(self.dataHandler.num_pnp_cycles):
-                if PnP % self.dataHandler.imaging_interval == 0:
-                    for col in range(self.dataHandler.gelpak_dimensions[1]):
-                        sensor = self.dataHandler.get_sensor(row, col)
-                        if sensor:  # Check if a sensor exists at this position
-                            # Map column to stage position
-                            stage_position = {0: 60, 1: 40, 2: 30, 3: 20}.get(col)
-                            if stage_position:
-                                self.stage.moveto(stage_position)
-                                self.snapImage(row, col)
-                                self.dataHandler.increment_num_photos(row, col)
-                                # print(sensor["photos"])
-                                photos = "photos"
-                                self.dataHandler.log(f"Took picture number {sensor[photos]} of sensor at ({row}, {col})")
-                                time.sleep(1)
-                            self.UIHandler.updateSensorInformation()
-                    self.stage.moveto(70)
 
                 print(f"Run Robot through row = {row}\tPnP = {PnP}")
                 for col in range(self.dataHandler.gelpak_dimensions[1]):
@@ -127,11 +130,28 @@ class executer(QObject):
                 self.dataHandler.update_experiment_file()
 
         ## Code for robot
-        # self.stage.moveto(347)
-        # sensor_positions = [
-        # [0.0718, -0.449, 0.1123, 0, 3.14, 0],
-        # ]
+
         # self.robot.run(1, self.dataHandler.numPnPCycles, sensor_positions)
+
+    def image_row(self, row, go_back=True):
+        return_location = self.stage.position
+
+        for col in range(self.dataHandler.gelpak_dimensions[1]):
+            sensor = self.dataHandler.get_sensor(row, col)
+            if sensor:  # Check if a sensor exists at this position
+                # Map column to stage position
+                stage_position = {0: 60, 1: 40, 2: 30, 3: 20}.get(col)
+                self.stage.moveto(stage_position)
+                self.snapImage(row, col)
+                self.dataHandler.increment_num_photos(row, col)
+                # print(sensor["photos"])
+                photos = "photos"
+                self.dataHandler.log(f"Took picture number {sensor[photos]} of sensor at ({row}, {col})")
+                time.sleep(1)
+                self.UIHandler.updateSensorInformation()
+
+        if go_back:
+            self.stage.moveto(return_location)
 
     def run_protocol_in_background(self):
         protocol_thread = threading.Thread(target=self.run_protocol, daemon=True)
@@ -147,5 +167,5 @@ class executer(QObject):
 if __name__ == '__main__':
     app = QApplication([])
     execute = executer()
-    execute.run_protocol_in_background()
+    # execute.run_protocol_in_background()
     app.exec()
