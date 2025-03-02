@@ -34,9 +34,9 @@ void setup() {
 void loop() {
   // Check if there is a message
   if (Serial.available()){
-    Serial.println("BT Command Recieved");
+    // Serial.println("BT Command Recieved");
     String command = Serial.readStringUntil('\n');
-    Serial.printf("Command recieved: %s\n", command.c_str());
+    // Serial.printf("Command recieved: %s\n", command.c_str());
 
     parseCommand(command);
   }
@@ -58,7 +58,7 @@ void parseCommand(String command){
   int acceleration = command.substring(secondcomma+1, thirdcomma).toInt();
   bool direction = command.substring(thirdcomma + 1).toInt() == 1;
 
-  Serial.printf("Distance: %d, Velocity: %d, Acceleration: %d, Direction: %d\n", distance, velocity, acceleration, direction);
+  Serial.printf("Command recieved: Distance: %d, Velocity: %d, Acceleration: %d, Direction: %d\n", distance, velocity, acceleration, direction);
 
   moveStage(distance, velocity, acceleration, direction);
 }

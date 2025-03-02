@@ -14,7 +14,7 @@ import numpy as np
 def warnRangeSetting(setting, low, high, setVar):
     '''Basic limit setting range check.'''
     if setVar > high or setVar < low:
-        print(f"{setting} setting ({setVar}) out of range!")
+        print(f"CAM: {setting} setting ({setVar}) out of range!")
         return True
     return False
 
@@ -41,8 +41,8 @@ def assessCalibration(inImage):
                 count += 1
     averageWhiteVal = int(total / count)
     area = count
-    # print(f"AVG PIXEL VALUE: {averageWhiteVal}\nTARGET: 202")
-    # print(f"Count: {count}/{CALIB_FRAME_SIZE[1] * CALIB_FRAME_SIZE[0]}")
+    # print(f"CAM: AVG PIXEL VALUE: {averageWhiteVal}\nTARGET: 202")
+    # print(f"CAM: Count: {count}/{CALIB_FRAME_SIZE[1] * CALIB_FRAME_SIZE[0]}")
     return averageWhiteVal, area
 
 
@@ -66,7 +66,7 @@ class App:
 
 # the vast majority of callbacks come from amcam.dll/so/dylib internal threads
     def setupCamera(self):
-        print("Starting camera...")
+        print("CAM: Starting camera...")
         a = amcam.Amcam.EnumV2()
         if len(a) > 0:
             # Print camera info (for debugging)
@@ -97,30 +97,30 @@ class App:
                             # Start camera
                             self.hcam.StartPullModeWithCallback(self.cameraCallback, self)
                         except amcam.HRESULTException as ex:
-                            print('Failed to start camera, hr=0x{:x}'.format(ex.hr))
-                    print("Camera started successfully")
+                            print('CAM: Failed to start camera, hr=0x{:x}'.format(ex.hr))
+                    print("CAM: Camera started successfully")
                 # finally:
                 #     self.closeCam()
                 #     print("Closed cam")
             else:
-                print('Failed to open camera')
+                print('CAM: Failed to open camera')
         else:
-            print('No camera found')
+            print('CAM: No camera found')
     
     def snapImage(self, path, res = 0):
         '''Trigger still image capture and set save path.'''
-        # print('Snapping!')
+        # print('CAM: Taking Image')
         self.saved = False
         try:
             self.hcam.Snap(res)
         except:
-            print(f"ERROR: Could not snap still image for path: {path}")
+            print(f"CAM: ERROR: Could not snap still image for path: {path}")
         else:
-            # print('Snapped')
+            print('CAM: Took Image')
             self.stillPath = path
     
     def closeCam(self):
-        print("Closing")
+        print("CAM: Closing")
         if self.hcam:
             self.hcam.Close()
             self.hcam = None
@@ -154,9 +154,9 @@ class App:
                 self.liveCallback()
                 self.counter = self.counter + 1
             except amcam.HRESULTException as ex:
-                print('pull image failed, hr=0x{:x}'.format(ex.hr))
+                print('CAM: pull image failed, hr=0x{:x}'.format(ex.hr))
         else:
-            print('event callback: {}'.format(nEvent))
+            print('CAM: event callback: {}'.format(nEvent))
         
     
     def StillCallback(self, nEvent):
@@ -166,19 +166,19 @@ class App:
                 # Pull image data from camera
                 self.hcam.PullStillImageV2(self.stillBuf, 24, None)
             except amcam.HRESULTException as ex:
-                print('pull still image failed, hr=0x{:x}'.format(ex.hr))
+                print('CAM: pull still image failed, hr=0x{:x}'.format(ex.hr))
             else:
                 try:
                     # Construct image from bytes and manipulate as needed (rotate, flip, etc.)
                     image = Image.frombytes('RGB', self.stillSize, self.stillBuf).rotate(90, expand=True).transpose(Image.FLIP_TOP_BOTTOM)
                     # Save image to path
                     image.save(f"{self.stillPath}.png")
-                    # print(f'saved to {self.stillPath}')
+                    print(f'CAM: Saved to {self.stillPath}')
                 except:
-                    print(f'Error writing still image to {self.stillPath}')
+                    print(f'CAM: Error writing still image to {self.stillPath}')
             self.saved = True
         else:
-            print('event callback: {}'.format(nEvent))
+            print('CAM: event callback: {}'.format(nEvent))
     
     def run(self):
         self.setupCamera()
@@ -198,51 +198,51 @@ class App:
             try:
                 self.hcam.put_AutoExpoEnable(False)
                 self.hcam.put_ExpoTime(int(exposureTimeMs*1000))
-                print(f'Exposure Time: {self.hcam.get_ExpoTime()}')
+                print(f'CAM: Exposure Time: {self.hcam.get_ExpoTime()}')
                 self.hcam.put_ExpoAGain(exposureGainPercent)
-                print(f'Exposure Gain: {self.hcam.get_ExpoAGain()}')
+                print(f'CAM: Exposure Gain: {self.hcam.get_ExpoAGain()}')
 
                 if warnRangeSetting('Color Temperature', 2000, 15000, whiteBal[0]) or warnRangeSetting('Color Tint', 200, 2500, whiteBal[1]):
                     return False
                 self.hcam.put_TempTint(whiteBal[0], whiteBal[1])
-                print(f'White Balance: {self.hcam.get_TempTint()}')
+                print(f'CAM: White Balance: {self.hcam.get_TempTint()}')
 
                 if warnRangeSetting('Contrast', -100, 100, contrast):
                     return False
                 self.hcam.put_Contrast(contrast)
-                print(f'Contrast: {self.hcam.get_Contrast()}')
+                print(f'CAM: Contrast: {self.hcam.get_Contrast()}')
 
                 if type(color) is not bool:
-                    print("Incorrect setting for color!")
+                    print("CAM: Incorrect setting for color!")
                     return False
                 self.hcam.put_Chrome(color)
 
                 if type(rotate) is not int or rotate not in [0, 90, 180, 270]:
-                    print("Incorrect setting for rotate!")
+                    print("CAM: Incorrect setting for rotate!")
                     return False
                 self.hcam.put_Option(amcam.AMCAM_OPTION_ROTATE, rotate)
 
                 if type(flipH) is not bool:
-                    print("Incorrect setting for flipH!")
+                    print("CAM: Incorrect setting for flipH!")
                     return False
                 self.hcam.put_HFlip(flipH)
 
                 if type(flipV) is not bool:
-                    print("Incorrect setting for flipV!")
+                    print("CAM: Incorrect setting for flipV!")
                     return False
                 self.hcam.put_VFlip(flipV)
 
                 if warnRangeSetting('Sharpen', 0, 500, sharpen):
                     return False
                 self.hcam.put_Option(amcam.AMCAM_OPTION_SHARPENING, sharpen)
-                print(f'Sharpen: {self.hcam.get_Option(amcam.AMCAM_OPTION_SHARPENING)}')
+                print(f'CAM: Sharpen: {self.hcam.get_Option(amcam.AMCAM_OPTION_SHARPENING)}')
 
                 if warnRangeSetting('Demosaic', 0, 4, demosaic):
                     return False
                 self.hcam.put_Option(amcam.AMCAM_OPTION_DEMOSAIC, demosaic)
-                print(f'Demosaic: {self.hcam.get_Option(amcam.AMCAM_OPTION_DEMOSAIC)}')
+                print(f'CAM: Demosaic: {self.hcam.get_Option(amcam.AMCAM_OPTION_DEMOSAIC)}')
             except Exception as e:
-                print("Error updating camera settings\n")
-                print(e)
+                print(f"CAM: Error updating camera settings: {e}\n")
+                # print(e)
                 return False
         return True

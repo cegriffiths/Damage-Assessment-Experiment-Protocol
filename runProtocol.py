@@ -10,7 +10,7 @@ import stage
 import CameraApp as CA
 import dataHandling
 import UIScript
-import robotcontrol
+# import robotcontrol
 import os
 import threading
 import time
@@ -36,15 +36,15 @@ class executer(QObject):
         self.dataHandler.create_log()
 
         self.cameraApp = CA.App()
-        self.dataHandler.log("Opened camera")
+        print("PROTOCOL: Opened camera")
 
         self.stage = stage.stage()
         self.stage.calibrate()
-        self.dataHandler.log("Calibrated stage")
+        print("PROTOCOL: Calibrated stage")
 
-        self.robot = robotcontrol.RobotExt()
-        self.robot.calibrate()
-        self.dataHandler.log("Calibrated robot")
+        # self.robot = robotcontrol.RobotExt()
+        # self.robot.calibrate()
+        print("PROTOCOL: Calibrated robot")
 
         self.UIHandler = UIScript.MainWindow(self.stage, self.dataHandler, self.cameraApp)
         # self.stage.update_stage.connect(self.UIHandler.updateComponents)
@@ -90,13 +90,13 @@ class executer(QObject):
     def change_state(self, newState):
         self.state = newState
         self.update_state.emit(self.state)
-        self.dataHandler.log(f"System state updated to: {self.state}")
+        print(f"PROTOCOL: System state updated to: {self.state}")
 
     def checkFlags(self):
         """Check all flags when a flag is updated"""
         if self.UIHandler.dataInputsFlag and self.UIHandler.calibratedCameraFlag:
             self.change_state("Ready")
-            self.dataHandler.create_log()
+            self.dataHandler.rename_log()
 
     def run_protocol(self):
         """Executes the main protocol logic."""
@@ -104,7 +104,7 @@ class executer(QObject):
         while self.state == "Initializing":
             time.sleep(0.5)
 
-        print("Running protocol...")
+        print("PROTOCOL: Running protocol...")
         time.sleep(1)
         self.change_state("Running")
 
@@ -119,13 +119,13 @@ class executer(QObject):
             
             for PnP in range(self.dataHandler.num_pnp_cycles):
 
-                print(f"Run Robot through row = {row}\tPnP = {PnP}")
+                print(f"PROTOCOL: Run Robot through row = {row}\tPnP = {PnP}")
                 for col in range(self.dataHandler.gelpak_dimensions[1]):
                     sensor = self.dataHandler.get_sensor(row, col)
                     if sensor:  # Only increment if a sensor exists
                         self.dataHandler.increment_pnp_cycles(row, col)
                         pnp_cycles = "PnP_cycles"
-                        self.dataHandler.log(f"PnP'd number {sensor[pnp_cycles]} of sensor at ({row}, {col})")
+                        print(f"PROTOCOL: PnP'd number {sensor[pnp_cycles]} of sensor at ({row}, {col})")
 
                 self.dataHandler.update_experiment_file()
 
@@ -146,7 +146,7 @@ class executer(QObject):
                 self.dataHandler.increment_num_photos(row, col)
                 # print(sensor["photos"])
                 photos = "photos"
-                self.dataHandler.log(f"Took picture number {sensor[photos]} of sensor at ({row}, {col})")
+                print(f"PROTOCOL: Took picture number {sensor[photos]} of sensor at ({row}, {col})")
                 time.sleep(1)
                 self.UIHandler.updateSensorInformation()
 
@@ -158,14 +158,15 @@ class executer(QObject):
         protocol_thread.start()
 
     def snapImage(self, row, col):
-        print(f"Snap! Row: {row}, Col: {col}")
+        print(f"PROTOCOL: Snap! Row: {row}, Col: {col}")
         time = datetime.now()
         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-        self.cameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, timestamp))
+        ## Add back when we actually want images
+        # self.cameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, timestamp))
 
 
 if __name__ == '__main__':
     app = QApplication([])
     execute = executer()
-    # execute.run_protocol_in_background()
+    execute.run_protocol_in_background()
     app.exec()
