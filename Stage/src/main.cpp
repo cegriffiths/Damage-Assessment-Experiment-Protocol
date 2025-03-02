@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <BluetoothSerial.h>
+// #include <BluetoothSerial.h>
 
 // Pin definitions
 #define SIGNAL_OUT 12
@@ -8,7 +8,7 @@
 #define LIMIT_SWITCH_IN 15
 
 const int pwmChannel = 0;
-BluetoothSerial SerialBT;
+// BluetoothSerial SerialBT;
 volatile bool limitSwitchTriggered = false;
 
 // Function definitions
@@ -25,7 +25,7 @@ void setup() {
 
   attachInterrupt(digitalPinToInterrupt(LIMIT_SWITCH_IN), onLimitSwitchPress, FALLING);
 
-  SerialBT.begin("ESP32StepperControl");
+  // SerialBT.begin("ESP32StepperControl");
 
   Serial.begin(921600);
   Serial.print("Setup Finished!");
@@ -36,9 +36,9 @@ void setup() {
 // Listening over serialBT for commands
 void loop() {
   // Check if there is a message
-  if (SerialBT.available()){
+  if (Serial.available()){
     Serial.println("BT Command Recieved");
-    String command = SerialBT.readStringUntil('\n');
+    String command = Serial.readStringUntil('\n');
     Serial.printf("Command recieved: %s\n", command.c_str());
 
     parseCommand(command);
@@ -90,7 +90,7 @@ void moveStage(int steps, int frequency, int delta, bool direction){
   // If going towards home and already home, to not move motor
   if (direction == 0 && digitalRead(LIMIT_SWITCH_IN) == LOW){
     // Send signals
-    SerialBT.println("LIMIT_STOP");
+    // SerialBT.println("LIMIT_STOP");
     Serial.println("Already home: Limit stop");
   }
   else{
@@ -120,7 +120,7 @@ void moveStage(int steps, int frequency, int delta, bool direction){
         // Turn off motor immediately
         digitalWrite(ENABLE_OUT, HIGH);
         // Send signals
-        SerialBT.println("LIMIT_STOP");
+        // SerialBT.println("LIMIT_STOP");
         Serial.println("Limit stop");
         // Flip Flag
         limitSwitchTriggered = false;
@@ -132,7 +132,7 @@ void moveStage(int steps, int frequency, int delta, bool direction){
         // Turn off motor immediately
         digitalWrite(ENABLE_OUT, HIGH);
         // Send signals
-        SerialBT.println("MANUAL_STOP");
+        // SerialBT.println("MANUAL_STOP");
         Serial.println("Manual stop");
         // Flip Flag
         limitSwitchTriggered = false;
@@ -162,7 +162,7 @@ void moveStage(int steps, int frequency, int delta, bool direction){
         // Turn off motor immediately
         digitalWrite(ENABLE_OUT, HIGH);
         // Send signals
-        SerialBT.println("LIMIT_STOP");
+        // SerialBT.println("LIMIT_STOP");
         Serial.println("Limit stop");
         // Flip Flag
         limitSwitchTriggered = false;
@@ -174,7 +174,7 @@ void moveStage(int steps, int frequency, int delta, bool direction){
         // Turn off motor immediately
         digitalWrite(ENABLE_OUT, HIGH);
         // Send signals
-        SerialBT.println("MANUAL_STOP");
+        // SerialBT.println("MANUAL_STOP");
         Serial.println("Manual stop");
         // Flip Flag
         limitSwitchTriggered = false;
@@ -204,7 +204,7 @@ void moveStage(int steps, int frequency, int delta, bool direction){
         // Turn off motor immediately
         digitalWrite(ENABLE_OUT, HIGH);
         // Send signals
-        SerialBT.println("LIMIT_STOP");
+        // SerialBT.println("LIMIT_STOP");
         Serial.println("Limit stop");
         // Flip Flag
         limitSwitchTriggered = false;
@@ -216,7 +216,7 @@ void moveStage(int steps, int frequency, int delta, bool direction){
         // Turn off motor immediately
         digitalWrite(ENABLE_OUT, HIGH);
         // Send signals
-        SerialBT.println("MANUAL_STOP");
+        // SerialBT.println("MANUAL_STOP");
         Serial.println("Manual stop");
         // Flip Flag
         limitSwitchTriggered = false;
@@ -241,7 +241,7 @@ void moveStage(int steps, int frequency, int delta, bool direction){
     // Disable the motor
     digitalWrite(ENABLE_OUT, HIGH);
     // Send completion message
-    SerialBT.println("DONE_MOTION");
+    // SerialBT.println("DONE_MOTION");
     Serial.println("Done Motion.");
   }
   

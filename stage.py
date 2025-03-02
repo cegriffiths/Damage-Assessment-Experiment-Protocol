@@ -27,20 +27,27 @@ class stage(QObject):
     def __init__(self):
         super().__init__()
         ## It is COM7 on my laptop, might be different on other devices
-        try:
-            ## Windows
-            # self.bluetooth_serial = serial.Serial("COM7", 921600)
-            ## Linux
-            # self.bluetooth_serial = serial.Serial("/dev/rfcomm0", 921600)
+        # try:
+        #     ## Windows
+        #     # self.bluetooth_serial = serial.Serial("COM7", 921600)
+        #     ## Linux
+        #     self.bluetooth_serial = serial.Serial("/dev/rfcomm0", 921600)
 
-            if self.bluetooth_serial.is_open:
-                print("Bluetooth serial is open.")
-            else:
-                print("Bluetooth serial is closed.")
-            print("BT Connected")
-        except serial.serialutil.SerialException as e:
-            self.bluetooth_serial = None
-            print("COM7 not open, error:", e)
+        #     if self.bluetooth_serial.is_open:
+        #         print("Bluetooth serial is open.")
+        #     else:
+        #         print("Bluetooth serial is closed.")
+
+        #     print("BT Connected")
+        # except serial.serialutil.SerialException as e:
+        #     self.bluetooth_serial = None
+        #     print("COM7 not open, error:", e)
+
+        #ESP32 Connection over USB on windows
+        self.esp32serial = serial.Serial('COM5', 921600)
+        #ESP32 Connection over USB on Linux (TODO)
+
+
         listener_thread = threading.Thread(target=self.listen_for_limit_switch, daemon=True)
         listener_thread.start()
         
@@ -101,15 +108,20 @@ class stage(QObject):
     def sendMoveCommand(self, numSteps, stepFrequency, deltaFrequency, direction):
         print("Sending Command")
         command = f"{numSteps},{stepFrequency},{deltaFrequency},{int(direction)}\n"
-        self.bluetooth_serial.write(command.encode())
+
+        # self.bluetooth_serial.write(command.encode())
+        self.esp32serial.write(command.encode())
+
         print(F"Sent command:{numSteps},{stepFrequency},{deltaFrequency},{int(direction)}")
         time.sleep(0.1)
 
     def listen_for_limit_switch(self):
         '''Function to listen for messages from ESP32 in a seperate thread'''
         while True:
-            if self.bluetooth_serial.in_waiting > 0:
-                message = self.bluetooth_serial.readline().decode().strip()
+            # if self.bluetooth_serial.in_waiting > 0:
+            if self.esp32serial.in_waiting > 0:    
+                # message = self.bluetooth_serial.readline().decode().strip()    
+                message = self.esp32serial.readline().decode().strip()
                 if message == "LIMIT_STOP":
                     self.position = 0
                     self.motionFlag = False
