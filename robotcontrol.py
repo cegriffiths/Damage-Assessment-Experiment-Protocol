@@ -118,6 +118,9 @@ class RobotExt:
     def __init__(self):
         self.robot = Robot()
         self.robot.connect()
+        self.callback = None
+        self.PnP_done_event = threading.Event()
+        self.col = 0
 
     def calibrate(self):
         remoteCheck = self.robot.send_command('is in remote control')
@@ -148,6 +151,7 @@ class RobotExt:
             time.sleep(1)
 
     def run(self, num_sensors, num_picks, sensor_positions):
+        self.PnP_done_event.clear()
         print("Loading PnP Script")
         self.robot.send_command('load pick_and_place.urp')
         time.sleep(1)
@@ -169,9 +173,11 @@ class RobotExt:
         self.robot.send_PnPData(num_picks, num_sensors, sensor_positions)
         
         # Start a new thread to monitor the serial communication
-        self.monitor_thread = threading.Thread(target=self.monitor_serial)
-        self.monitor_thread.daemon = True
+        self.monitor_thread = threading.Thread(target=self.monitor_serial, daemon=True)
         self.monitor_thread.start()
+
+        while not self.PnP_done_event.is_set():
+            self.PnP_done_event.wait(timeout=1)
 
     def monitor_serial(self):
         try:
@@ -186,20 +192,33 @@ class RobotExt:
 
                 status_update = collected.decode('utf-8')
                 print(f"Status update from robot: {status_update}")
+
+                if "Picking" in status_update:
+                    self.col = int(status_update.split(" ")[2]) - 1
+                elif "Completed" in status_update:
+                    self.callback(self.col)
+                elif "Finished" in status_update:
+                    self.PnP_done_event.set()
+                    break
+
                 time.sleep(0.5)
         except KeyboardInterrupt:
             print("Interrupted by user")
             self.robot.close()
             sys.exit()
 
-if __name__ == '__main__':
-    num_picks = 1
-    num_sensors = 1
-    sensor_positions = [
-    # [0.0718, -0.449, 0.1123, 0, 3.14, 0],
-    [0.0718, -0.449, 0.1120, 0, 3.14, 0],
+    def register_callback(self, callback):
+        self.callback = callback
 
-    ]
+if __name__ == '__main__':
+    num_picks = 3
+    num_sensors = 4
+    sensor_positions = [
+        [0.0718, -0.449, 0.1123, 0, 3.14, 0],
+        [0.0718, -0.469, 0.1123, 0, 3.14, 0],
+        [0.0718, -0.489, 0.1123, 0, 3.14, 0],
+        [0.0718, -0.509, 0.1123, 0, 3.14, 0],
+        ]
 
     robot_ext = RobotExt()
     robot_ext.calibrate()

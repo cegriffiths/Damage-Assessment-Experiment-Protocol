@@ -10,7 +10,7 @@ import stage
 import CameraApp as CA
 import dataHandling
 import UIScript
-# import robotcontrol
+import robotcontrol
 import os
 import threading
 import time
@@ -22,10 +22,10 @@ from PySide6.QtCore import Signal, QObject
 class executer(QObject):
 
     SENSOR_POSITIONS = [
-        [0.0718, -0.449, 0.1123, 0, 3.14, 0],
-        [0.0718, -0.469, 0.1123, 0, 3.14, 0],
-        [0.0718, -0.489, 0.1123, 0, 3.14, 0],
-        [0.0718, -0.509, 0.1123, 0, 3.14, 0],
+        [0.0718, -0.450, 0.1123, 0, 3.14, 0],
+        [0.0718, -0.467, 0.1123, 0, 3.14, 0],
+        [0.0718, -0.484, 0.1123, 0, 3.14, 0],
+        [0.0718, -0.501, 0.1123, 0, 3.14, 0],
         ]
 
     update_state = Signal(str)  # Signal which, when the state is updated here, calls the function in MainWindow
@@ -42,8 +42,8 @@ class executer(QObject):
         self.stage.calibrate()
         print("PROTOCOL: Calibrated stage")
 
-        # self.robot = robotcontrol.RobotExt()
-        # self.robot.calibrate()
+        self.robot = robotcontrol.RobotExt()
+        self.robot.calibrate()
         print("PROTOCOL: Calibrated robot")
 
         self.UIHandler = UIScript.MainWindow(self.stage, self.dataHandler, self.cameraApp)
@@ -110,13 +110,14 @@ class executer(QObject):
 
         # This will always start on the first row. We should change this eventually to allow for starting on any row.
         for row in range(self.dataHandler.gelpak_dimensions[0]):
+            self.robot.register_callback(lambda col: self.dataHandler.increment_pnp_cycles(row, col))
             self.image_row(row = row, go_back=False)
             self.stage.moveto(347)
                         
             picks_done = 0
             while picks_done < self.dataHandler.num_pnp_cycles:
                 picks_to_do = min(self.dataHandler.num_pnp_cycles - picks_done, self.dataHandler.imaging_interval)
-                self.robot.run(picks_to_do, self.dataHandler.num_pnp_cycles, self.SENSOR_POSITIONS)
+                self.robot.run(len(self.SENSOR_POSITIONS), picks_to_do, self.SENSOR_POSITIONS)
                 picks_done += picks_to_do
                 self.image_row(row = row, go_back=True)
                 
