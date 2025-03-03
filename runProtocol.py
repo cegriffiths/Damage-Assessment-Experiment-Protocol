@@ -110,6 +110,8 @@ class executer(QObject):
 
         #Row is manual here, it will need to be gotten from the UI somehow in the future.
         self.image_row(row=1, go_back=False)
+        
+        self.UIHandler.row_change_dialog()
 
         #Move stage to PnP location
         self.stage.moveto(347)

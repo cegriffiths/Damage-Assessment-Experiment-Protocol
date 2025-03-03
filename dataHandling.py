@@ -114,9 +114,14 @@ import os
 import sys
 import logging
 from typing import List, Dict, Optional
+from PySide6.QtCore import Signal, QObject
 
-class DataManager:
+class DataManager(QObject):
+
+    row_changed = Signal(int)
+
     def __init__(self):
+        super().__init__()
         # Path information
         self.experiment_file_path: Optional[str] = None
         self.log_file_path: Optional[str] = None
@@ -126,7 +131,7 @@ class DataManager:
         self.EE: Optional[str] = None  # EE being used
         self.num_pnp_cycles: Optional[int] = None  # Number of PnP cycles to perform per sensor
         self.imaging_interval: Optional[int] = None  # Imaging interval
-        self.current_row = 1
+        self.current_row: Optional[int] = None
         
         # Sensor information
         self.gelpak_id: Optional[str] = None  # GelPak ID
@@ -289,7 +294,14 @@ class DataManager:
         """Get the dimensions of the GelPak."""
         return self.gelpak_dimensions
     
+    def set_row(self, row):
+        """Set the current row"""
+        self.current_row = row
+        print(f"DATA: Current row updated to {self.current_row}")
+        self.row_changed.emit(self.current_row)
+
     def increment_row(self):
         """Increment the current row"""
         self.current_row = self.current_row + 1
-        print(f"DATA: Current row updated to {self.current_row}")
+        print(f"DATA: Current row incremented to {self.current_row}")
+        self.row_changed.emit(self.current_row)

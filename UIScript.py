@@ -8,17 +8,19 @@
 import os
 import sys
 import dataHandling
+import threading
 import CameraApp as CA
 import stage
 import amcam
 from datetime import datetime
 import PySide6
-from PySide6.QtCore import QDate, QDir, QStandardPaths, Qt, QUrl, Slot, Signal, QObject
+import PySide6.QtCore as QtCore
+from PySide6.QtCore import QDate, QDir, QStandardPaths, Qt, QUrl, Slot, Signal, QObject, QTimer, QEventLoop, QMetaObject
 from PySide6.QtGui import QAction, QGuiApplication, QDesktopServices, QIcon
 from PySide6.QtGui import QImage, QPixmap, QFont
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel,
     QMainWindow, QPushButton, QTabWidget, QToolBar, QVBoxLayout, QWidget,
-    QLineEdit, QComboBox, QSpinBox, QFileDialog, QMessageBox, QCheckBox, QGridLayout)
+    QLineEdit, QComboBox, QSpinBox, QFileDialog, QMessageBox, QCheckBox, QGridLayout, QDialog)
 from PySide6.QtMultimedia import (QCamera, QImageCapture,
                                   QCameraDevice, QMediaCaptureSession,
                                   QMediaDevices)
@@ -88,6 +90,9 @@ class MainWindow(QMainWindow):
             self.stage.state_changed.connect(self.on_stage_state_update)
             self.stage.position_changed.connect(self.on_stage_position_update)
 
+        if self.dataHandler:
+            self.dataHandler.row_changed.connect(self.on_row_update)
+
         # UI flags
         self.dataInputsFlag = False
         self.calibratedCameraFlag = False
@@ -107,6 +112,7 @@ class MainWindow(QMainWindow):
     def set_dataHandler(self, dataHandler):
         """Set the dataHandler object after initialization."""
         self.dataHandler = dataHandler
+        self.dataHandler.row_changed.connect(self.on_row_update)
 
     def set_cameraApp(self, CameraApp):
         """Set the CameraApp object after initialization and assign callback."""
@@ -125,9 +131,14 @@ class MainWindow(QMainWindow):
 
 
         ## Main State
+        state_layout = QHBoxLayout()
         self.experiment_state_label = QLabel("State: ")
         self.experiment_state_label.setFont(title_font)
-        main_layout.addWidget(self.experiment_state_label, alignment=Qt.AlignCenter)
+        self.current_row_label = QLabel("Current Row: ")
+        state_layout.addWidget(self.experiment_state_label, alignment=Qt.AlignCenter)
+        state_layout.addWidget(self.current_row_label, alignment=Qt.AlignCenter)
+        main_layout.addLayout(state_layout)
+
         # main_layout.addWidget(self.experiment_state_label)
 
 
@@ -190,7 +201,7 @@ class MainWindow(QMainWindow):
         
         # Experiment Setup
         experiment_layout = QVBoxLayout()
-        self.experiment_label = QLabel("Experiement Setup")
+        self.experiment_label = QLabel("Experiment Setup")
         self.experiment_label.setFont(header_font)
         experiment_layout.addWidget(self.experiment_label, alignment=Qt.AlignHCenter)
         # Experiment File Selection Dropdown
@@ -231,6 +242,15 @@ class MainWindow(QMainWindow):
         Imaging_Interval_layout.addWidget(Imaging_Interval_label)
         Imaging_Interval_layout.addWidget(self.Imaging_Interval_input)
         experiment_layout.addLayout(Imaging_Interval_layout)
+        # Row Selection input
+        Row_Selection_layout = QHBoxLayout()
+        Row_Selection_label = QLabel("Select Starting Row:")
+        self.row_selection_input = QSpinBox()
+        self.row_selection_input.setRange(1, 3)
+        self.row_selection_input.setValue(1)
+        Row_Selection_layout.addWidget(Row_Selection_label)
+        Row_Selection_layout.addWidget(self.row_selection_input)
+        experiment_layout.addLayout(Row_Selection_layout)
         # Submit Button
         self.Submit_button = QPushButton("Submit")
         self.Submit_button.clicked.connect(self.submit_data)
@@ -288,6 +308,7 @@ class MainWindow(QMainWindow):
         ee = self.EE_dropdown.currentText()
         num_pnp_cycles = self.PnP_cycles_input.value()
         imaging_interval = self.Imaging_Interval_input.value()
+        row = self.row_selection_input.value()
 
         if not experiment_file_path:
             QMessageBox.warning(self, "Input Error", "Please select a file")
@@ -302,8 +323,10 @@ class MainWindow(QMainWindow):
         self.EE_dropdown.setEnabled(False)
         self.PnP_cycles_input.setEnabled(False)
         self.Imaging_Interval_input.setEnabled(False)
+        self.row_selection_input.setEnabled(False)
 
         self.dataHandler.read_experiment_file(experiment_file_path, ee, num_pnp_cycles, imaging_interval)
+        self.dataHandler.set_row(row)
         self.updateSensorInformation()
 
         self.dataInputsFlag = True  #Update Flag
@@ -320,6 +343,34 @@ class MainWindow(QMainWindow):
                     sensor_widget.updateCycles(sensor["PnP_cycles"])
         print("UI: Sensor information updated.")
 
+    def row_change_dialog(self):
+        """Ensure UI interactions run in the main thread."""
+
+        # Create threading event
+        self.row_event = threading.Event()
+
+        # Call UI function in another thread
+        QMetaObject.invokeMethod(self, "_row_change_dialog", Qt.QueuedConnection)
+
+        # Make current thread wait for an event to occur
+        self.row_event.wait()
+
+    @QtCore.Slot()
+    def _row_change_dialog(self):
+        """Create dialog box to block all functions until user changes GelPak row"""
+        print("UI: Time to change rows")
+        # Create dialog box for user 
+        self.dialog = ConfirmationDialog(self.row_change_confirmed, self.dataHandler.current_row, self)
+        self.dialog.exec()
+
+        # Set the event to allow the original thread to execute
+        self.row_event.set()
+
+    def row_change_confirmed(self):
+        print("UI: Row changed")
+        self.dataHandler.increment_row()
+        print("UI: Row Incremeted in dataHandler")
+
     def liveCallback(self):
         img = QImage(self.CameraApp.buf, self.CameraApp.width, self.CameraApp.height, (self.CameraApp.width * 24 + 31) // 32 * 4, QImage.Format_RGB888)
         img = img.mirrored(horizontally=False, vertically=True)
@@ -332,6 +383,7 @@ class MainWindow(QMainWindow):
             self.area_label.setText("Area: Not Calibrating")
 
     def closeEvent(self, event):
+        event.accept()
         self.CameraApp.closeCam()
 
     def snapImage(self):
@@ -360,8 +412,39 @@ class MainWindow(QMainWindow):
 
     def on_stage_position_update(self, position):
         self.stage_currentPos_label.setText(f"Position: {position}")
-        print("UI: In stage position update")
+        print(f"UI: Stage position is {position}")
 
+    def on_row_update(self, row):
+        self.current_row_label.setText(f"Current row: {row}")
+        print(f"UI: Updated current row to {row}")
+
+
+class ConfirmationDialog(QDialog):
+    def __init__(self, callback_function, current_row, parent=None):
+        super().__init__(parent)
+        self.callback_function = callback_function
+        self.setWindowTitle("Row Change")
+        self.setModal(True)  # Makes the dialog modal (Freeze MainWindow)
+
+        layout = QVBoxLayout()
+        
+        explanation_label = QLabel(f"Change the GelPak base from row {current_row} to row {current_row + 1}")
+        confirm_button = QPushButton("Confirm Row Change")
+        confirm_button.clicked.connect(self.on_confirm)
+        layout.addWidget(explanation_label)
+        layout.addWidget(confirm_button)
+        self.setLayout(layout)
+
+    def on_confirm(self):
+        print("UI: Row Change Confirmed by User")
+        self.accept()  # Close the dialog
+        self.callback_function()  # Call the function after closing
+
+    def closeEvent(self, event):
+        """If user clicks 'X', close the entire application."""
+        # event.accept()
+        print("UI: Closed program before changing rows")
+        sys.exit(0)
 
 # Run the application
 if __name__ == "__main__":
