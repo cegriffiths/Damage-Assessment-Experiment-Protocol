@@ -28,8 +28,10 @@ class stage(QObject):
     def __init__(self):
         super().__init__()
         #ESP32 Connection over USB on windows
-        self.esp32serial = serial.Serial('COM5', 921600)
+        # self.esp32serial = serial.Serial('COM5', 921600)
         #ESP32 Connection over USB on Linux (TODO)
+        self.esp32serial = serial.Serial('/dev/ttyUSB0', 921600)
+
 
         listener_thread = threading.Thread(target=self.listen_for_limit_switch, daemon=True)
         listener_thread.start()

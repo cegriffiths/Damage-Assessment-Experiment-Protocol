@@ -10,7 +10,7 @@ import stage
 import CameraApp as CA
 import dataHandling
 import UIScript
-# import robotcontrol
+import robotcontrol
 import os
 import threading
 import time
@@ -22,10 +22,10 @@ from PySide6.QtCore import Signal, QObject
 class executer(QObject):
 
     SENSOR_POSITIONS = [
-        [0.0718, -0.449, 0.1123, 0, 3.14, 0],
-        [0.0718, -0.469, 0.1123, 0, 3.14, 0],
-        [0.0718, -0.489, 0.1123, 0, 3.14, 0],
-        [0.0718, -0.509, 0.1123, 0, 3.14, 0],
+        [0.0718, -0.450, 0.1123, 0, 3.14, 0],
+        [0.0718, -0.467, 0.1123, 0, 3.14, 0],
+        [0.0718, -0.484, 0.1123, 0, 3.14, 0],
+        [0.0718, -0.501, 0.1123, 0, 3.14, 0],
         ]
 
     update_state = Signal(str)  # Signal which, when the state is updated here, calls the function in MainWindow
@@ -42,8 +42,8 @@ class executer(QObject):
         self.stage.calibrate()
         print("PROTOCOL: Calibrated stage")
 
-        # self.robot = robotcontrol.RobotExt()
-        # self.robot.calibrate()
+        self.robot = robotcontrol.RobotExt()
+        self.robot.calibrate()
         print("PROTOCOL: Calibrated robot")
 
         self.UIHandler = UIScript.MainWindow(self.stage, self.dataHandler, self.cameraApp)
@@ -108,28 +108,29 @@ class executer(QObject):
         time.sleep(1)
         self.change_state("Running")
 
-        #Row is manual here, it will need to be gotten from the UI somehow in the future.
-        self.image_row(row=1, go_back=False)
-        
-        self.UIHandler.row_change_dialog()
-
-        #Move stage to PnP location
-        self.stage.moveto(347)
-
-
+        # This will always start on the first row. We should change this eventually to allow for starting on any row.
         for row in range(self.dataHandler.gelpak_dimensions[0]):
-            
-            for PnP in range(self.dataHandler.num_pnp_cycles):
+            self.robot.register_callback(lambda col: self.dataHandler.increment_pnp_cycles(row, col))
+            self.image_row(row = row, go_back=False)
+            self.stage.moveto(347)
+                        
+            picks_done = 0
+            while picks_done < self.dataHandler.num_pnp_cycles:
+                picks_to_do = min(self.dataHandler.num_pnp_cycles - picks_done, self.dataHandler.imaging_interval)
+                self.robot.run(len(self.SENSOR_POSITIONS), picks_to_do, self.SENSOR_POSITIONS)
+                picks_done += picks_to_do
+                self.image_row(row = row, go_back=True)
+                
+            # for PnP in range(self.dataHandler.num_pnp_cycles):
+            #     print(f"Run Robot through row = {row}\tPnP = {PnP}")
+            #     for col in range(self.dataHandler.gelpak_dimensions[1]):
+            #         sensor = self.dataHandler.get_sensor(row, col)
+            #         if sensor:  # Only increment if a sensor exists
+            #             self.dataHandler.increment_pnp_cycles(row, col)
+            #             pnp_cycles = "PnP_cycles"
+            #             self.dataHandler.log(f"PnP'd number {sensor[pnp_cycles]} of sensor at ({row}, {col})")
 
-                print(f"PROTOCOL: Run Robot through row = {row}\tPnP = {PnP}")
-                for col in range(self.dataHandler.gelpak_dimensions[1]):
-                    sensor = self.dataHandler.get_sensor(row, col)
-                    if sensor:  # Only increment if a sensor exists
-                        self.dataHandler.increment_pnp_cycles(row, col)
-                        pnp_cycles = "PnP_cycles"
-                        print(f"PROTOCOL: PnP'd number {sensor[pnp_cycles]} of sensor at ({row}, {col})")
-
-                self.dataHandler.update_experiment_file()
+            #     self.dataHandler.update_experiment_file()
 
         ## Code for robot
 
@@ -142,7 +143,7 @@ class executer(QObject):
             sensor = self.dataHandler.get_sensor(row, col)
             if sensor:  # Check if a sensor exists at this position
                 # Map column to stage position
-                stage_position = {0: 60, 1: 40, 2: 30, 3: 20}.get(col)
+                stage_position = {0: 60, 1: 40, 2: 30, 3: 20}.get(col) #These need to get updated
                 self.stage.moveto(stage_position)
                 self.snapImage(row, col)
                 self.dataHandler.increment_num_photos(row, col)
