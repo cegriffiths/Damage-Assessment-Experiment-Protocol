@@ -22,11 +22,18 @@ from PySide6.QtCore import Signal, QObject
 class executer(QObject):
 
     SENSOR_POSITIONS = [
-        [0.0718, -0.450, 0.1123, 0, 3.14, 0],
-        [0.0718, -0.467, 0.1123, 0, 3.14, 0],
-        [0.0718, -0.484, 0.1123, 0, 3.14, 0],
-        [0.0718, -0.501, 0.1123, 0, 3.14, 0],
+        [0.0698, -0.450, 0.1123, 0, 3.14, 0],
+        [0.0698, -0.467, 0.1123, 0, 3.14, 0],
+        [0.0698, -0.484, 0.1123, 0, 3.14, 0],
+        [0.0698, -0.501, 0.1123, 0, 3.14, 0],
         ]
+    
+    IMAGING_STAGE_POSITIONS = {
+        3: 74,
+        2: 57,
+        1: 40,
+        0: 23,
+    }
 
     update_state = Signal(str)  # Signal which, when the state is updated here, calls the function in MainWindow
 
@@ -40,6 +47,7 @@ class executer(QObject):
 
         self.stage = stage.stage()
         self.stage.calibrate()
+        self.stage.moveto(self.IMAGING_STAGE_POSITIONS[3])
         print("PROTOCOL: Calibrated stage")
 
         self.robot = robotcontrol.RobotExt()
@@ -56,36 +64,6 @@ class executer(QObject):
         self.change_state(self.state)
 
         self.UIHandler.show()
-
-### Attempt to make UI appear before calibrating stage
-
-    # def __init__(self):
-    #     super().__init__()
-
-    #     self.dataHandler = dataHandling.DataManager()
-    #     self.cameraApp = CA.App()
-
-    #     # Initialize UI first without objects
-    #     self.UIHandler = UIScript.MainWindow(dataHandler = self.dataHandler, CameraApp = self.cameraApp)
-    #     self.UIHandler.show()
-
-    #     self.stage = stage.stage()
-    #     self.stage.calibrate()
-
-    #     # Assign objects after initialization
-    #     self.UIHandler.set_stage(self.stage)
-    #     # self.UIHandler.set_dataHandler(self.dataHandler)
-    #     # self.UIHandler.set_cameraApp(self.cameraApp)
-
-    #     self.UIHandler.flags_updated.connect(self.checkFlags)
-
-    #     # self.update_state = Signal(str)
-    #     self.update_state.connect(self.UIHandler.updateExperimentState)
-
-    #     self.state = "Initializing"
-    #     self.change_state(self.state)
-
-    #     # self.UIHandler.show()
 
     def change_state(self, newState):
         self.state = newState
@@ -107,34 +85,26 @@ class executer(QObject):
         print("PROTOCOL: Running protocol...")
         time.sleep(1)
         self.change_state("Running")
+        done = False
 
-        # This will always start on the first row. We should change this eventually to allow for starting on any row.
-        for row in range(self.dataHandler.gelpak_dimensions[0]):
-            self.robot.register_callback(lambda col: self.dataHandler.increment_pnp_cycles(row, col))
-            self.image_row(row = row, go_back=False)
+        while not done:
+            self.robot.register_callback(lambda col: self.dataHandler.increment_pnp_cycles(self.dataHandler.current_row, col))
+            self.image_row(row = self.dataHandler.current_row, go_back=False)
             self.stage.moveto(347)
                         
             picks_done = 0
-            while picks_done < self.dataHandler.num_pnp_cycles:
+            do_PnP = picks_done < self.dataHandler.num_pnp_cycles
+            while do_PnP:
                 picks_to_do = min(self.dataHandler.num_pnp_cycles - picks_done, self.dataHandler.imaging_interval)
                 self.robot.run(len(self.SENSOR_POSITIONS), picks_to_do, self.SENSOR_POSITIONS)
                 picks_done += picks_to_do
-                self.image_row(row = row, go_back=True)
+                self.image_row(row = self.dataHandler.current_row, go_back=do_PnP)
                 
-            # for PnP in range(self.dataHandler.num_pnp_cycles):
-            #     print(f"Run Robot through row = {row}\tPnP = {PnP}")
-            #     for col in range(self.dataHandler.gelpak_dimensions[1]):
-            #         sensor = self.dataHandler.get_sensor(row, col)
-            #         if sensor:  # Only increment if a sensor exists
-            #             self.dataHandler.increment_pnp_cycles(row, col)
-            #             pnp_cycles = "PnP_cycles"
-            #             self.dataHandler.log(f"PnP'd number {sensor[pnp_cycles]} of sensor at ({row}, {col})")
-
-            #     self.dataHandler.update_experiment_file()
-
-        ## Code for robot
-
-        # self.robot.run(1, self.dataHandler.numPnPCycles, sensor_positions)
+            self.stage.moveto(200)
+            if self.dataHandler.current_row < self.dataHandler.gelpak_dimensions[0] - 1:
+                self.UIHandler.row_change_dialog()
+            else:
+                done = True
 
     def image_row(self, row, go_back=True):
         return_location = self.stage.position
@@ -142,12 +112,10 @@ class executer(QObject):
         for col in range(self.dataHandler.gelpak_dimensions[1]):
             sensor = self.dataHandler.get_sensor(row, col)
             if sensor:  # Check if a sensor exists at this position
-                # Map column to stage position
-                stage_position = {0: 60, 1: 40, 2: 30, 3: 20}.get(col) #These need to get updated
+                stage_position = self.IMAGING_STAGE_POSITIONS[col]
                 self.stage.moveto(stage_position)
                 self.snapImage(row, col)
                 self.dataHandler.increment_num_photos(row, col)
-                # print(sensor["photos"])
                 photos = "photos"
                 print(f"PROTOCOL: Took picture number {sensor[photos]} of sensor at ({row}, {col})")
                 time.sleep(1)
@@ -165,7 +133,7 @@ class executer(QObject):
         time = datetime.now()
         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
         ## Add back when we actually want images
-        # self.cameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, timestamp))
+        self.cameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, timestamp))
 
 
 if __name__ == '__main__':
