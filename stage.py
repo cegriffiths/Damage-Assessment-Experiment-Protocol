@@ -28,9 +28,9 @@ class stage(QObject):
     def __init__(self):
         super().__init__()
         #ESP32 Connection over USB on windows
-        # self.esp32serial = serial.Serial('COM5', 921600)
+        self.esp32serial = serial.Serial('COM5', 921600)
         #ESP32 Connection over USB on Linux (TODO)
-        self.esp32serial = serial.Serial('/dev/ttyUSB0', 921600)
+        # self.esp32serial = serial.Serial('/dev/ttyUSB0', 921600)
 
 
         listener_thread = threading.Thread(target=self.listen_for_limit_switch, daemon=True)
@@ -164,6 +164,12 @@ class stage(QObject):
 if __name__ == '__main__':
     stage = stage()
     stage.calibrate()
-    # stage.moveto(347)
-    stage.moveto(75)
-    stage.moveto(30)
+    stage.moveto(74)
+    time.sleep(0.1)
+    stage.moveto(57)
+    time.sleep(0.1)
+    stage.moveto(40)
+    time.sleep(0.1)
+    stage.moveto(23)
+    # time.sleep(0.1)
+    # stage.moveto(6)
