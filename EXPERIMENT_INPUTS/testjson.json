@@ -1,7 +1,7 @@
 {
     "GelPak ID": 1,
     "EE": "Circular Planar",
-    "NumPnPCycles": 4,
+    "NumPnPCycles": 5,
     "ImagingInterval": 2,
     "grid": [
         {
@@ -9,28 +9,28 @@
             "row": 0,
             "col": 0,
             "PnP_cycles": 70,
-            "photos": 25
+            "photos": 27
         },
         {
             "ID": 2,
             "row": 0,
             "col": 1,
             "PnP_cycles": 70,
-            "photos": 25
+            "photos": 27
         },
         {
             "ID": 3,
             "row": 0,
             "col": 2,
             "PnP_cycles": 70,
-            "photos": 25
+            "photos": 27
         },
         {
             "ID": 4,
             "row": 0,
             "col": 3,
             "PnP_cycles": 64,
-            "photos": 22
+            "photos": 24
         },
         {
             "ID": 5,

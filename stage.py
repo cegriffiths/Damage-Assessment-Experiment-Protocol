@@ -171,5 +171,3 @@ if __name__ == '__main__':
     stage.moveto(40)
     time.sleep(0.1)
     stage.moveto(23)
-    # time.sleep(0.1)
-    # stage.moveto(6)

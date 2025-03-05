@@ -176,7 +176,7 @@ class DataManager(QObject):
         
         with open(self.experiment_file_path, "w") as f:
             json.dump(experiment_data, f, indent=4)
-        print(f"DATA: Experiment file '{self.experiment_file_path}' updated successfully.")
+        print(f"DATA: Experiment file {self.experiment_file_path} updated successfully.")
 
     def create_log(self):
         """Create a log file for the experiment."""
@@ -262,6 +262,7 @@ class DataManager(QObject):
         sensor = self.get_sensor(row, col)
         if sensor:
             sensor["PnP_cycles"] += 1
+            self.update_experiment_file()
             print(f"DATA: Incremented PnP cycles for sensor at row {row}, col {col}.")
         else:
             print(f"DATA: No sensor found at row {row}, col {col}.")
@@ -271,6 +272,7 @@ class DataManager(QObject):
         sensor = self.get_sensor(row, col)
         if sensor:
             sensor["photos"] += 1
+            self.update_experiment_file()
             print(f"DATA: Incremented photos for sensor at row {row}, col {col}.")
         else:
             print(f"DATA: No sensor found at row {row}, col {col}.")
@@ -288,6 +290,7 @@ class DataManager(QObject):
             "photos": photos
         }
         self.sensors.append(sensor)
+        self.update_experiment_file()
         print(f"DATA: Added sensor '{sensor_id}' at row {row}, col {col}.")
 
     def get_gelpak_dimensions(self) -> List[int]:

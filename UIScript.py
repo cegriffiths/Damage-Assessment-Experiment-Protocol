@@ -367,6 +367,7 @@ class MainWindow(QMainWindow):
             self.area_label.setText("Area: Not Calibrating")
 
     def closeEvent(self, event):
+        self.dataHandler.update_experiment_file()
         event.accept()
         self.CameraApp.closeCam()
 
@@ -374,7 +375,7 @@ class MainWindow(QMainWindow):
         print("UI: Snap!")
         time = datetime.now()
         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-        self.CameraApp.snapImage(os.path.join(self.dataHandler.imagedir, timestamp))
+        self.CameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, timestamp))
 
     def checkCameraCalibration(self):
         self.CameraApp.calibrating = not self.CameraApp.calibrating
@@ -406,6 +407,7 @@ class MainWindow(QMainWindow):
 class ConfirmationDialog(QDialog):
     def __init__(self, callback_function, current_row, parent=None):
         super().__init__(parent)
+        self.parent = parent
         self.callback_function = callback_function
         self.setWindowTitle("Row Change")
         self.setModal(True)  # Makes the dialog modal (Freeze MainWindow)
@@ -427,6 +429,8 @@ class ConfirmationDialog(QDialog):
     def closeEvent(self, event):
         """If user clicks 'X', close the entire application."""
         # event.accept()
+        if type(self.parent) is MainWindow:
+            self.parent.dataHandler.update_experiment_file()
         print("UI: Closed program before changing rows")
         sys.exit(0)
 
