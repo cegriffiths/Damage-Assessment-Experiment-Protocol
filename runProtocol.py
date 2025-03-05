@@ -47,7 +47,7 @@ class executer(QObject):
 
         self.stage = stage.stage()
         self.stage.calibrate()
-        self.stage.moveto(self.IMAGING_STAGE_POSITIONS[3])
+        self.stage.moveto(self.IMAGING_STAGE_POSITIONS[0])
         print("PROTOCOL: Calibrated stage")
 
         self.robot = robotcontrol.RobotExt()
@@ -93,18 +93,19 @@ class executer(QObject):
             self.stage.moveto(347)
                         
             picks_done = 0
-            do_PnP = picks_done < self.dataHandler.num_pnp_cycles
-            while do_PnP:
+            while picks_done < self.dataHandler.num_pnp_cycles:
                 picks_to_do = min(self.dataHandler.num_pnp_cycles - picks_done, self.dataHandler.imaging_interval)
                 self.robot.run(len(self.SENSOR_POSITIONS), picks_to_do, self.SENSOR_POSITIONS)
                 picks_done += picks_to_do
-                self.image_row(row = self.dataHandler.current_row, go_back=do_PnP)
+                self.image_row(row = self.dataHandler.current_row, go_back=picks_done < self.dataHandler.num_pnp_cycles)
                 
             self.stage.moveto(200)
             if self.dataHandler.current_row < self.dataHandler.gelpak_dimensions[0] - 1:
                 self.UIHandler.row_change_dialog()
             else:
                 done = True
+                print("PROTOCOL: Protocol complete")
+                self.change_state("Complete")
 
     def image_row(self, row, go_back=True):
         return_location = self.stage.position
@@ -132,7 +133,7 @@ class executer(QObject):
         print(f"PROTOCOL: Snap! Row: {row}, Col: {col}")
         time = datetime.now()
         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-        ## Add back when we actually want images
+        # Add back when we actually want images
         self.cameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, timestamp))
 
 

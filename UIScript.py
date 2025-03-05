@@ -57,22 +57,6 @@ class MainWindow(QMainWindow):
 
     flags_updated = Signal()
 
-    # def __init__(self, stage, dataHandler=None, CameraApp=None):
-    #     super().__init__()
-    #     self.dataHandler = dataHandler or dataHandling.DataManager()
-    #     self.CameraApp = CameraApp or CA.App()
-    #     self.CameraApp.setLiveCallback(self.liveCallback)
-
-    #     self.stage = stage
-    #     self.stage.state_changed.connect(self.on_stage_state_update)
-    #     self.stage.position_changed.connect(self.on_stage_position_update)
-
-    #     self.dataInputsFlag = False
-    #     self.calibratedCameraFlag = False
-
-    #     self.initUI()
-    #     self.CameraApp.run()
-
     def __init__(self, stage=None, dataHandler=None, CameraApp=None):
         super().__init__()
 
@@ -187,13 +171,13 @@ class MainWindow(QMainWindow):
         self.sensor_label.setFont(header_font)
         self.sensor_grid_layout = QGridLayout()
 
-        for row in range(self.dataHandler.gelpak_dimensions[0]):
-            for col in range(self.dataHandler.gelpak_dimensions[1]):
-                sensor = self.dataHandler.get_sensor(row, col)
+        for UI_row in range(self.dataHandler.gelpak_dimensions[0]):
+            for UI_col in range(self.dataHandler.gelpak_dimensions[1]):
+                sensor = self.dataHandler.get_sensor(UI_row, 3-UI_col)
                 sensor_id = sensor["ID"] if sensor else "N/A"
                 num_pnp = sensor["PnP_cycles"] if sensor else 0
                 sensor_widget = SensorLayout(sensor_id, num_pnp)
-                self.sensor_grid_layout.addWidget(sensor_widget, row, col)
+                self.sensor_grid_layout.addWidget(sensor_widget, UI_row, UI_col)
         
         sensor_layout.addWidget(self.sensor_label, alignment=Qt.AlignHCenter)
         sensor_layout.addLayout(self.sensor_grid_layout)
@@ -326,17 +310,17 @@ class MainWindow(QMainWindow):
         self.row_selection_input.setEnabled(False)
 
         self.dataHandler.read_experiment_file(experiment_file_path, ee, num_pnp_cycles, imaging_interval)
-        self.dataHandler.set_row(row)
+        self.dataHandler.set_row(row-1)
         self.updateSensorInformation()
 
         self.dataInputsFlag = True  #Update Flag
         self.flags_updated.emit()   #Send Signal to executer
 
     def updateSensorInformation(self):
-        for row in range(self.dataHandler.gelpak_dimensions[0]):
-            for col in range(self.dataHandler.gelpak_dimensions[1]):
-                sensor_widget = self.sensor_grid_layout.itemAtPosition(row, col).widget()
-                sensor = self.dataHandler.get_sensor(row, col)
+        for UI_row in range(self.dataHandler.gelpak_dimensions[0]):
+            for UI_col in range(self.dataHandler.gelpak_dimensions[1]):
+                sensor_widget = self.sensor_grid_layout.itemAtPosition(UI_row, UI_col).widget()
+                sensor = self.dataHandler.get_sensor(UI_row, 3-UI_col)
 
                 if sensor_widget and sensor:
                     sensor_widget.updateID(sensor["ID"])
@@ -390,7 +374,7 @@ class MainWindow(QMainWindow):
         print("UI: Snap!")
         time = datetime.now()
         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-        self.CameraApp.snapImage(os.path.join(self.dataHandler.imagedir, timestamp))
+        self.CameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, timestamp))
 
     def checkCameraCalibration(self):
         self.CameraApp.calibrating = not self.CameraApp.calibrating
@@ -415,8 +399,8 @@ class MainWindow(QMainWindow):
         print(f"UI: Stage position is {position}")
 
     def on_row_update(self, row):
-        self.current_row_label.setText(f"Current row: {row}")
-        print(f"UI: Updated current row to {row}")
+        self.current_row_label.setText(f"Current row: {row + 1}")
+        print(f"UI: Updated current row to {row + 1}")
 
 
 class ConfirmationDialog(QDialog):
@@ -428,7 +412,7 @@ class ConfirmationDialog(QDialog):
 
         layout = QVBoxLayout()
         
-        explanation_label = QLabel(f"Change the GelPak base from row {current_row} to row {current_row + 1}")
+        explanation_label = QLabel(f"Change the GelPak base from row {current_row + 1} to row {current_row + 2}")
         confirm_button = QPushButton("Confirm Row Change")
         confirm_button.clicked.connect(self.on_confirm)
         layout.addWidget(explanation_label)
