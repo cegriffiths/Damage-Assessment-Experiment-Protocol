@@ -28,9 +28,9 @@ class stage(QObject):
     def __init__(self):
         super().__init__()
         #ESP32 Connection over USB on windows
-        self.esp32serial = serial.Serial('COM5', 921600)
-        #ESP32 Connection over USB on Linux (TODO)
-        # self.esp32serial = serial.Serial('/dev/ttyUSB0', 921600)
+        # self.esp32serial = serial.Serial('COM5', 921600)
+        #ESP32 Connection over USB on Linux
+        self.esp32serial = serial.Serial('/dev/ttyUSB0', 921600)
 
 
         listener_thread = threading.Thread(target=self.listen_for_limit_switch, daemon=True)
@@ -51,7 +51,7 @@ class stage(QObject):
         self.motionFlag = True
         self.waitForStage()
         self.position = 0
-        print("STAGE: Calibration Complete\n")
+        print("STAGE: Calibration Complete")
 
     def moveto(self, position, velocity = BASEVELOCITY):
         '''Moves the linear stage to a position'''
@@ -69,7 +69,7 @@ class stage(QObject):
             self.waitForStage()
             ## Set new position
             self.position = self._position + dist if direction else self._position - dist
-            print(f"STAGE: Moved to {self._position} with velocity {velocity}\n")
+            print(f"STAGE: Moved to {self._position} with velocity {velocity}")
             # print("Distance: ", dist, " Frequency: ", stepFrequency, " Steps: ", numSteps, " Direction: ", direction)
         else:
             print("STAGE: Position or velocity are out of range")
