@@ -30,18 +30,21 @@ from PySide6.QtMultimediaWidgets import QVideoWidget
 os.environ["QT_PLUGIN_PATH"] = os.path.join(os.path.dirname(PySide6.__file__), "plugins")
 
 class SensorLayout(QWidget):
-    def __init__(self, sensor_id, num_pnp):
+    def __init__(self, sensor_id, num_pnp, num_photos):
         super().__init__()
         self.sensor_id = sensor_id
         self.cycles = num_pnp
+        self.photos = num_photos
 
         layout = QVBoxLayout()
 
         self.id_label = QLabel(f"Sensor ID: {self.sensor_id}")
         self.cycles_label = QLabel(f"Cycles: {self.cycles}")
+        self.photos_label = QLabel(f"Photos: {self.photos}")
 
         layout.addWidget(self.id_label)
         layout.addWidget(self.cycles_label)
+        layout.addWidget(self.photos_label)
 
         self.setLayout(layout)
 
@@ -52,6 +55,10 @@ class SensorLayout(QWidget):
     def updateCycles(self, cycles):
         self.cycles = cycles
         self.cycles_label.setText(f"Cycles: {self.cycles}")
+
+    def updatePhotos(self, photos):
+        self.photos = photos
+        self.photos_label.setText(f"Photos: {self.photos}")
 
 class MainWindow(QMainWindow):
 
@@ -176,7 +183,8 @@ class MainWindow(QMainWindow):
                 sensor = self.dataHandler.get_sensor(UI_row, 3-UI_col)
                 sensor_id = sensor["ID"] if sensor else "N/A"
                 num_pnp = sensor["PnP_cycles"] if sensor else 0
-                sensor_widget = SensorLayout(sensor_id, num_pnp)
+                num_photos = sensor["photos"] if sensor else 0
+                sensor_widget = SensorLayout(sensor_id, num_pnp, num_photos)
                 self.sensor_grid_layout.addWidget(sensor_widget, UI_row, UI_col)
         
         sensor_layout.addWidget(self.sensor_label, alignment=Qt.AlignHCenter)
@@ -325,6 +333,7 @@ class MainWindow(QMainWindow):
                 if sensor_widget and sensor:
                     sensor_widget.updateID(sensor["ID"])
                     sensor_widget.updateCycles(sensor["PnP_cycles"])
+                    sensor_widget.updatePhotos(sensor["photos"])
         print("UI: Sensor information updated.")
 
     def row_change_dialog(self):
@@ -370,12 +379,17 @@ class MainWindow(QMainWindow):
         self.dataHandler.update_experiment_file()
         event.accept()
         self.CameraApp.closeCam()
+        sys.exit(0)
+
+    def shutdown(self):
+        print("UI: Shutdown")
+        QApplication.quit()
 
     def snapImage(self):
         print("UI: Snap!")
         time = datetime.now()
         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-        self.CameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, timestamp))
+        self.CameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, f"Manual-{timestamp}"))
 
     def checkCameraCalibration(self):
         self.CameraApp.calibrating = not self.CameraApp.calibrating
@@ -391,9 +405,11 @@ class MainWindow(QMainWindow):
 
     def updateExperimentState(self, state):
         self.experiment_state_label.setText(f"State: {state}")
+        print(f"UI: Experiment state is {state}")
 
     def on_stage_state_update(self, state):
         self.stage_state_label.setText(f"State: {state}")
+        print(f"UI: Stage state is {state}")
 
     def on_stage_position_update(self, position):
         self.stage_currentPos_label.setText(f"Position: {position}")
@@ -430,9 +446,10 @@ class ConfirmationDialog(QDialog):
         """If user clicks 'X', close the entire application."""
         # event.accept()
         if type(self.parent) is MainWindow:
-            self.parent.dataHandler.update_experiment_file()
-        print("UI: Closed program before changing rows")
-        sys.exit(0)
+            print("UI: Closed program before changing rows")
+            self.parent.closeEvent(event)
+        else:
+            sys.exit(0)
 
 # Run the application
 if __name__ == "__main__":

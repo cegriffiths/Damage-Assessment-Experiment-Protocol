@@ -9,6 +9,7 @@ import time
 import threading
 import os
 from PySide6.QtCore import Signal, QObject
+from PySide6.QtWidgets import QApplication
 
 BASEVELOCITY = 30    #mm/s
 CALIBRATIONVELOCITY = 20 #mm/s
@@ -23,6 +24,7 @@ class stage(QObject):
 
     state_changed = Signal(str)
     position_changed = Signal(int)
+    shutdown_signal = Signal()
 
 
     def __init__(self):
@@ -102,7 +104,7 @@ class stage(QObject):
                     self.motionFlag = False
                     self.manualStopFlag = True
                     print("STAGE: Manual Stop")
-                    os._exit(0)
+                    # sys.exit(0)
                 elif message == "DONE_MOTION":
                     self.motionFlag = False
                     print("STAGE: In place")
@@ -115,6 +117,8 @@ class stage(QObject):
             self.state = "Moving"
         elif self.motionFlag == False and self._manualStopFlag == True:
             self.state = "Manual Stop"
+            self.shutdown_signal.emit()
+            # QApplication.quit()
         elif self._motionFlag == False and self._manualStopFlag == False:
             self.state = "In Position"
         else:

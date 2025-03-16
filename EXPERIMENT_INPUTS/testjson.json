@@ -1,71 +1,71 @@
 {
     "GelPak ID": 1,
     "EE": "Circular Planar",
-    "NumPnPCycles": 2,
-    "ImagingInterval": 1,
+    "NumPnPCycles": 50,
+    "ImagingInterval": 5,
     "grid": [
         {
             "ID": 1,
             "row": 0,
             "col": 0,
-            "PnP_cycles": 72,
-            "photos": 32
+            "PnP_cycles": 85,
+            "photos": 59
         },
         {
             "ID": 2,
             "row": 0,
             "col": 1,
-            "PnP_cycles": 72,
-            "photos": 32
+            "PnP_cycles": 81,
+            "photos": 58
         },
         {
             "ID": 3,
             "row": 0,
             "col": 2,
-            "PnP_cycles": 72,
-            "photos": 32
+            "PnP_cycles": 81,
+            "photos": 54
         },
         {
             "ID": 4,
             "row": 0,
             "col": 3,
-            "PnP_cycles": 66,
-            "photos": 28
+            "PnP_cycles": 74,
+            "photos": 48
         },
         {
             "ID": 5,
             "row": 1,
             "col": 0,
-            "PnP_cycles": 68,
-            "photos": 29
+            "PnP_cycles": 70,
+            "photos": 34
         },
         {
             "ID": 6,
             "row": 1,
             "col": 1,
-            "PnP_cycles": 68,
-            "photos": 29
+            "PnP_cycles": 70,
+            "photos": 34
         },
         {
             "ID": 7,
             "row": 1,
             "col": 2,
-            "PnP_cycles": 68,
-            "photos": 29
+            "PnP_cycles": 70,
+            "photos": 32
         },
         {
             "ID": 8,
             "row": 1,
             "col": 3,
-            "PnP_cycles": 62,
-            "photos": 26
+            "PnP_cycles": 64,
+            "photos": 29
         },
         {
             "ID": 9,
             "row": 2,
             "col": 0,
             "PnP_cycles": 52,
-            "photos": 16
+            "photos": 17
         },
         {
             "ID": 10,
