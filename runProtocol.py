@@ -47,14 +47,14 @@ class executer(QObject):
         self.cameraApp = CA.App()
         print("PROTOCOL: Opened camera")
 
-        self.stage = stage.stage()
-        self.stage.calibrate()
-        self.stage.moveto(self.IMAGING_STAGE_POSITIONS[0])
-        print("PROTOCOL: Calibrated stage")
-
         self.robot = robotcontrol.RobotExt()
         self.robot.calibrate()
         print("PROTOCOL: Calibrated robot")
+
+        self.stage = stage.stage()
+        self.stage.calibrate()
+        print("PROTOCOL: Calibrated stage")
+        self.stage.moveto(self.IMAGING_STAGE_POSITIONS[0])
 
         self.UIHandler = UIScript.MainWindow(self.stage, self.dataHandler, self.cameraApp)
         # self.stage.update_stage.connect(self.UIHandler.updateComponents)
@@ -126,12 +126,15 @@ class executer(QObject):
             if sensor:  # Check if a sensor exists at this position
                 stage_position = self.IMAGING_STAGE_POSITIONS[col]
                 self.stage.moveto(stage_position)
-                self.dataHandler.increment_num_photos(row, col)
-                self.snapImage(sensor["ID"], sensor["PnP_cycles"], sensor["photos"],row, col)
-                photos = "photos"
-                print(f"PROTOCOL: Took picture number {sensor[photos]} of sensor at ({row}, {col})")
-                time.sleep(1)
-                self.UIHandler.updateSensorInformation()
+                photos = sensor["photos"]
+                if self.snapImage(sensor["ID"], sensor["PnP_cycles"], photos + 1,row, col):
+                    self.dataHandler.increment_num_photos(row, col)
+                    print(f"PROTOCOL: Took picture number {photos} of sensor at ({row}, {col})")
+                    time.sleep(1)
+                    self.UIHandler.updateSensorInformation()
+                else:
+                    print("PROTOCOL: Error taking photo")
+                    sys.exit()
 
         if go_back:
             self.stage.moveto(return_location)
@@ -141,13 +144,15 @@ class executer(QObject):
         protocol_thread.start()
 
     def snapImage(self, ID, num_pnp, photo, row, col):
-        print(f"PROTOCOL: Snap! Sensor: {ID}, Row: {row}, Col: {col}, PnP: {num_pnp}, Photos: {photo}")
+        '''Takes image of current sensor. Returns true if taken and false if there was an error '''  
+        EE = self.dataHandler.EE[:4]
+        print(f"PROTOCOL: Snap! Sensor: {ID}, Row: {row}, Col: {col}, PnP: {num_pnp}, Photos: {photo}, EE: {EE}")
         time = datetime.now()
         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-        self.cameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, f"ID{ID}-PNP{num_pnp}-PHOTO{photo}-T{timestamp}"))
+        return self.cameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, f"EE{EE}-ID{ID}-PNP{num_pnp}-PHOTO{photo}-T{timestamp}"))
 
 def handle_exit():
-    execute.robot.calibrate()
+    execute.robot.stop()
     execute.dataHandler.update_experiment_file()
     print("PROTOCOL: Saved Experiment File before closing")
 

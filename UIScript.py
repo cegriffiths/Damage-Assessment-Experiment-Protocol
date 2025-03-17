@@ -276,6 +276,7 @@ class MainWindow(QMainWindow):
         imaging_buttons_layout.addWidget(self.cam_calib_push_button)
         self.confirm_calib_push_button = QPushButton("Camera is calibrated")
         self.confirm_calib_push_button.clicked.connect(self.confirmCameraCalibration)
+        self.confirm_calib_push_button.setEnabled(False)
         imaging_buttons_layout.addWidget(self.confirm_calib_push_button)
         imaging_layout.addLayout(imaging_buttons_layout)
 
@@ -374,13 +375,17 @@ class MainWindow(QMainWindow):
             self.area_label.setText("Area: Not Calibrating")
 
     def closeEvent(self, event):
-        self.dataHandler.update_experiment_file()
-        event.accept()
+        print("UI: CLOSING SYSTEM")
         self.CameraApp.closeCam()
-        sys.exit(0)
+        # self.dataHandler.update_experiment_file()
+        event.accept()
+        sys.exit()
+        # QApplication.quit()
+        # sys.exit()
 
     def shutdown(self):
         # print("UI: Shutdown")
+        print("UI: SHUTTING DOWN SYSTEM")
         QApplication.quit()
 
     def snapImage(self):
@@ -393,12 +398,15 @@ class MainWindow(QMainWindow):
         self.CameraApp.calibrating = not self.CameraApp.calibrating
         if self.CameraApp.calibrating:
             self.cam_calib_push_button.setText("Stop Calibrating")
+            self.confirm_calib_push_button.setEnabled(True)
             print("UI: Camera Calibration Open")
         else:
             self.cam_calib_push_button.setText("Start Calibrating")
+            self.confirm_calib_push_button.setEnabled(False)
             print("UI: Camera Calibration Closed")
 
     def confirmCameraCalibration(self):
+        print(f"UI: Confirmed Camera Calibration: Brightness: {self.CameraApp.brightness}\tDesired Brightness: 202\tArea: {self.CameraApp.area}\tDesired Area: {376*524}")
         self.calibratedCameraFlag = True
         self.flags_updated.emit()
         self.confirm_calib_push_button.setEnabled(False)

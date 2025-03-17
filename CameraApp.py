@@ -63,6 +63,7 @@ class App:
         self.brightness = None
         self.area = None
         self.counter = 0
+        self.closed = False
 
     def setLiveCallback(self, liveCallback):
         self.liveCallback = liveCallback
@@ -113,14 +114,21 @@ class App:
     def snapImage(self, path, res = 0):
         '''Trigger still image capture and set save path.'''
         # print('CAM: Taking Image')
-        self.saved = False
-        try:
-            self.hcam.Snap(res)
-        except:
-            print(f"CAM: ERROR: Could not snap still image for path: {path}")
+        if not self.closed:
+            self.saved = False
+            try:
+                self.hcam.Snap(res)
+            except:
+                print(f"CAM: ERROR: Could not snap still image for path: {path}")
+                return False
+            else:
+                self.stillPath = path
+                return True
+                print('CAM: Took Image')
         else:
-            print('CAM: Took Image')
-            self.stillPath = path
+            print("CAM: Camera is closed")
+            return False
+
     
     def closeCam(self):
         print("CAM: Closing")
@@ -131,6 +139,7 @@ class App:
         self.stillBuf = None
         self.stillSize = None
         self.lastFrame = None
+        self.closed = True
 
     @staticmethod
     def cameraCallback(nEvent, ctx):

@@ -34,6 +34,7 @@ class Robot:
         print("ROBOT: Connected to dashboard.")
 
     def close(self):
+        self.send_command('stop')
         self.dash_socket.close()
         self.server_socket.close()
         print("ROBOT: Closed connections.")
@@ -218,6 +219,9 @@ class RobotExt(QObject):
 
     def register_callback(self, callback):
         self.callback = callback
+
+    def stop(self):
+        self.robot.close()
 
 if __name__ == '__main__':
     num_picks = 3

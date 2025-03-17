@@ -8,6 +8,7 @@ import serial
 import time
 import threading
 import os
+import sys
 from PySide6.QtCore import Signal, QObject
 
 BASEVELOCITY = 30    #mm/s
@@ -40,6 +41,7 @@ class stage(QObject):
         self._motionFlag = False
         self._manualStopFlag = False
         self._state = "Unknown"
+        self._previousMotionWasCalibration = False
 
     def calibrate(self):
         '''Calibrates the linear stage'''
@@ -50,7 +52,8 @@ class stage(QObject):
         self.sendMoveCommand(direction, dist, CALIBRATIONVELOCITY)
         self.motionFlag = True
         self.waitForStage()
-        self.position = 0
+        # self.position = 0
+        self._previousMotionWasCalibration = True
         print("STAGE: Calibration Complete")
 
     def moveto(self, position, velocity = BASEVELOCITY):
@@ -58,6 +61,7 @@ class stage(QObject):
         if position == self._position:
             print(f"STAGE: Already in position {self._position}")        
         elif (position > 0 and position < STAGELENGTH) and (velocity > 0 and velocity < MAXVELOCITY):
+            print(f"STAGE: Moving Stage to {position} with velocity {velocity}")
             ## Find Distance to travel
             dist = abs(self._position - position)
             ## Find direction to travel. Away from home is True, towards home is False (Need decide which side is home so this could change)
@@ -66,20 +70,30 @@ class stage(QObject):
             # direction = True ## Towards end with motor
             self.sendMoveCommand(direction, dist)
             ## Set motion flag to true and then wait for stage to stop
-            print("STAGE: Moving Stage")
+            # print("STAGE: Moving Stage")
             self.motionFlag = True
             self.waitForStage()
             ## Set new position
-            self.position = self._position + dist if direction else self._position - dist
-            print(f"STAGE: Moved to {self._position} with velocity {velocity}")
-            # print("Distance: ", dist, " Frequency: ", stepFrequency, " Steps: ", numSteps, " Direction: ", direction)
+            if (self._position == 0) and (self._previousMotionWasCalibration == False):
+                print(f"STAGE: Unexpected limit switch while moving towards home. Calibrate then go to desired position")
+                sys.exit()
+                # time.sleep(2)
+                # self.calibrate()
+                # print(f"STAGE: Calibrated after unexpected limit switch")
+                # self.moveto(position, velocity)
+                # print(f"STAGE: Moved to desired location after unexpected limit switch")
+            else:
+                self.position = self._position + dist if direction else self._position - dist
+                print(f"STAGE: Moved to {self._position} with velocity {velocity}")
+                self._previousMotionWasCalibration = False
+                # print("Distance: ", dist, " Frequency: ", stepFrequency, " Steps: ", numSteps, " Direction: ", direction)
         else:
             print("STAGE: Position or velocity are out of range")
 
     def waitForStage(self):
         '''Waits for the stage to finish moving'''
         while self._motionFlag:
-            time.sleep(1)
+            time.sleep(0.1)
             # print("STAGE: moving")
 
     def sendMoveCommand(self, direction, distance, velocity=BASEVELOCITY, acceleration=BASEACCELERATION):
@@ -92,9 +106,7 @@ class stage(QObject):
         '''Function to listen for messages from ESP32 in a seperate thread'''
         time.sleep(0.5)
         while True:
-            # if self.bluetooth_serial.in_waiting > 0:
-            if self.esp32serial.in_waiting > 0:    
-                # message = self.bluetooth_serial.readline().decode().strip()    
+            if self.esp32serial.in_waiting > 0:  
                 message = self.esp32serial.readline().decode().strip()
                 if message == "LIMIT_STOP":
                     self.position = 0
@@ -104,7 +116,6 @@ class stage(QObject):
                     self.motionFlag = False
                     self.manualStopFlag = True
                     print("STAGE: Manual Stop")
-                    # sys.exit(0)
                 elif message == "DONE_MOTION":
                     self.motionFlag = False
                     print("STAGE: In place")
@@ -167,9 +178,15 @@ class stage(QObject):
 if __name__ == '__main__':
     stage = stage()
     stage.calibrate()
-    stage.moveto(74)
-    time.sleep(0.1)
-    stage.moveto(57)
+    # stage.moveto(74)
+    # time.sleep(0.1)
+    # stage.moveto(57)
+    # time.sleep(0.1)
+    # stage.moveto(40)
+    # time.sleep(0.1)
+    # stage.moveto(23)
+
+    stage.moveto(100)
     time.sleep(0.1)
     stage.moveto(40)
     time.sleep(0.1)
