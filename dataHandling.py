@@ -79,7 +79,14 @@ class DataManager(QObject):
         print(f"\tEE: {self.EE}")
         print(f"\tNumPnPCycles: {self.num_pnp_cycles}")
         print(f"\tImagingInterval: {self.imaging_interval}")
-        print(f"\tgrid: {self.sensors}")
+        # print(f"\tgrid: {self.sensors}")
+        for row in range(self.gelpak_dimensions[0]):
+            for col in range(self.gelpak_dimensions[1]):
+                sensor = self.get_sensor(row, col)
+                ID = sensor["ID"]
+                PnP_cycles = sensor["PnP_cycles"]
+                photos = sensor["photos"]
+                print(f"\tID: {ID}\trow: {row}\tcol: {col}\tPnP_cycles: {PnP_cycles}\tphotos: {photos}")
 
     def create_log(self):
         """Create a log file for the experiment."""

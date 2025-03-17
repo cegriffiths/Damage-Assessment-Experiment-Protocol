@@ -39,7 +39,10 @@ def assessCalibration(inImage):
             if lightingTestImArr[r + yBorder][c + xBorder][0] > WHITE_LIMIT:
                 total += lightingTestImArr[r + yBorder][c + xBorder][0]
                 count += 1
-    averageWhiteVal = int(total / count)
+    if count > 0:            
+        averageWhiteVal = int(total / count)
+    else:
+        averageWhiteVal = 0
     area = count
     # print(f"CAM: AVG PIXEL VALUE: {averageWhiteVal}\nTARGET: 202")
     # print(f"CAM: Count: {count}/{CALIB_FRAME_SIZE[1] * CALIB_FRAME_SIZE[0]}")
@@ -243,6 +246,5 @@ class App:
                 print(f'CAM: Demosaic: {self.hcam.get_Option(amcam.AMCAM_OPTION_DEMOSAIC)}')
             except Exception as e:
                 print(f"CAM: Error updating camera settings: {e}\n")
-                # print(e)
                 return False
         return True

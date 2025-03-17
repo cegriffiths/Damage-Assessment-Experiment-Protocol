@@ -118,13 +118,14 @@ void moveStage(int distance, int velocity, int acceleration, bool direction){
       else if(step_count < (accel_steps_count + const_steps_count) && keepMoving){
         step_delay = 1000000 / vel_steps;
         if(step_count == accel_steps_count){
-          Serial.println("Const Speed");
+          Serial.println("Constant Speed");
         }
       }
       // Check if stage should be decelerating
       else if(keepMoving){
         step_delay = 1000000 / sqrt(2 * accel_steps * (total_steps - step_count));
-        if(step_delay == accel_steps_count + const_steps_count){
+        // Serial.println("Decelerating");
+        if(step_count == (accel_steps_count + const_steps_count)){
           Serial.println("Decelerating");
         }
       }

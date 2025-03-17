@@ -9,7 +9,6 @@ import time
 import threading
 import os
 from PySide6.QtCore import Signal, QObject
-from PySide6.QtWidgets import QApplication
 
 BASEVELOCITY = 30    #mm/s
 CALIBRATIONVELOCITY = 20 #mm/s
@@ -22,9 +21,8 @@ STAGELENGTH = 451   ##mm
 class stage(QObject):
     '''Stage Object: Controls position of the stage, and deals with calibration'''
 
-    state_changed = Signal(str)
-    position_changed = Signal(int)
     shutdown_signal = Signal()
+    stage_changed = Signal()
 
 
     def __init__(self):
@@ -49,7 +47,7 @@ class stage(QObject):
         # print("STAGE: Calibrating")
         dist = STAGELENGTH
         direction = False
-        self.sendMoveCommand2(direction, dist, CALIBRATIONVELOCITY)
+        self.sendMoveCommand(direction, dist, CALIBRATIONVELOCITY)
         self.motionFlag = True
         self.waitForStage()
         self.position = 0
@@ -57,14 +55,16 @@ class stage(QObject):
 
     def moveto(self, position, velocity = BASEVELOCITY):
         '''Moves the linear stage to a position'''
-        if (position > 0 and position < STAGELENGTH) and (velocity > 0 and velocity < MAXVELOCITY):
+        if position == self._position:
+            print(f"STAGE: Already in position {self._position}")        
+        elif (position > 0 and position < STAGELENGTH) and (velocity > 0 and velocity < MAXVELOCITY):
             ## Find Distance to travel
             dist = abs(self._position - position)
             ## Find direction to travel. Away from home is True, towards home is False (Need decide which side is home so this could change)
             direction = True if self._position < position else False
             # direction = False ## Towards end without motor
             # direction = True ## Towards end with motor
-            self.sendMoveCommand2(direction, dist)
+            self.sendMoveCommand(direction, dist)
             ## Set motion flag to true and then wait for stage to stop
             print("STAGE: Moving Stage")
             self.motionFlag = True
@@ -82,8 +82,8 @@ class stage(QObject):
             time.sleep(1)
             # print("STAGE: moving")
 
-    def sendMoveCommand2(self, direction, distance, velocity=BASEVELOCITY, acceleration=BASEACCELERATION):
-        print("STAGE: Sending Command")
+    def sendMoveCommand(self, direction, distance, velocity=BASEVELOCITY, acceleration=BASEACCELERATION):
+        # print("STAGE: Sending Command")
         command = f"{distance},{velocity},{acceleration},{int(direction)}\n"
         self.esp32serial.write(command.encode())
         print(F"STAGE: Sent command:{distance},{velocity},{acceleration},{int(direction)}")
@@ -118,13 +118,12 @@ class stage(QObject):
         elif self.motionFlag == False and self._manualStopFlag == True:
             self.state = "Manual Stop"
             self.shutdown_signal.emit()
-            # QApplication.quit()
         elif self._motionFlag == False and self._manualStopFlag == False:
             self.state = "In Position"
         else:
             self.state = "Unknown"
         
-        print("STAGE: State updated: " + self._state)
+        # print("STAGE: State updated: " + self._state)
 
     @property
     def motionFlag(self):
@@ -151,7 +150,7 @@ class stage(QObject):
     @state.setter
     def state(self, value):
         self._state = value
-        self.state_changed.emit(self._state)
+        self.stage_changed.emit()
     
     @property
     def position(self):
@@ -160,7 +159,7 @@ class stage(QObject):
     @position.setter
     def position(self, value):
         self._position = value
-        self.position_changed.emit(self._position)
+        self.stage_changed.emit()
         # print(f"Position: {self._position}")
 
 

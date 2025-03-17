@@ -4,6 +4,7 @@ import socket
 import sys
 import time
 import threading
+from PySide6.QtCore import Signal, QObject
 
 ##Dashboard Commands
 # This is the IP address of the robot.
@@ -30,12 +31,12 @@ class Robot:
         self.dash_socket.settimeout(self.timeout)
         self.dash_socket.connect((self.ROBOT_IP, self.DASHBOARD_PORT))
         self.dash_socket.recv(1096)
-        print("Connected to dashboard.")
+        print("ROBOT: Connected to dashboard.")
 
     def close(self):
         self.dash_socket.close()
         self.server_socket.close()
-        print("Closed connections.")
+        print("ROBOT: Closed connections.")
 
     #Interact with Dashboard
     def send_command(self, command):
@@ -43,7 +44,7 @@ class Robot:
             self.dash_socket.sendall((command + '\n').encode())
             return(self.get_reply())
         except (ConnectionResetError, ConnectionAbortedError):
-            print("The connection was lost to the robot. Please connect and try running again.")
+            print("ROBOT: The connection was lost to the robot. Please connect and try running again.")
             self.close()
             sys.exit()
 
@@ -76,7 +77,7 @@ class Robot:
                         break
                     
                 request = collected.decode('utf-8')
-                print(f"Received request: {request}")
+                print(f"ROBOT: Received request: {request}")
                 time.sleep(0.5)
             
                 #Check request starts with GET
@@ -87,12 +88,12 @@ class Robot:
                         case "NUM_PICKS":
                             message = f"{var_name} {num_picks}\n"
                             client.send(message.encode())
-                            print(f"Sent number of picks: {num_picks}")
+                            print(f"ROBOT: Sent number of picks: {num_picks}")
                             sent_num_picks = True
                         case "NUM_SENSORS":
                             message = f"{var_name} {num_sensors}\n"
                             client.send(message.encode())
-                            print(f"Sent number of sensors: {num_sensors}")
+                            print(f"ROBOT: Sent number of sensors: {num_sensors}")
                             sent_num_sensors = True
                         case "POSITIONS":
                             for pos in coords:
@@ -104,18 +105,23 @@ class Robot:
                                 message += ")"
                                 message += "\n"
                                 client.send(message.encode())
-                            print("Sent positions")
+                            print("ROBOT: Sent positions")
                             sent_coords = True
                         case _:
-                            print("Unknown variable")
+                            print("ROBOT: Unknown variable")
                 else:
-                    print("Unknown request")
-            print("Sent all pnp data")
+                    print("ROBOT: Unknown request")
+            print("ROBOT: Sent all pnp data")
         except KeyboardInterrupt:
-            print("Interrupted by user")
+            print("ROBOT: Interrupted by user")
 
-class RobotExt:
+class RobotExt(QObject):
+
+    robot_state_changed = Signal(str, int)
+
     def __init__(self):
+        super().__init__()
+
         self.robot = Robot()
         self.robot.connect()
         self.callback = None
@@ -127,24 +133,24 @@ class RobotExt:
         if 'false' in remoteCheck:
             raise Exception('Robot is in local mode. Please set the robot to remote mode and try again.')
 
-        print("Powering on robot")
+        print("ROBOT: Powering on robot")
         self.robot.send_command('power on')
         ready = False
         while not ready:
             ready = not [i for i in ['POWER_ON', 'POWER_OFF', 'BOOTING'] if i in self.robot.send_command('robotmode')]
             time.sleep(1)
 
-        print("Releasing brakes")
+        print("ROBOT: Releasing brakes")
         self.robot.send_command('brake release')
         ready = False
         while not ready:
             ready = 'RUNNING' in self.robot.send_command('robotmode')
             time.sleep(1)
 
-        print("Loading Init Script")
+        print("ROBOT: Loading Init Script")
         self.robot.send_command('load initialize.urp')
         time.sleep(1)
-        print("Playing Init Script")
+        print("ROBOT: Playing Init Script")
         self.robot.send_command('play')
         time.sleep(0.1)
         while('true' in self.robot.send_command('running')):
@@ -152,24 +158,24 @@ class RobotExt:
 
     def run(self, num_sensors, num_picks, sensor_positions):
         self.PnP_done_event.clear()
-        print("Loading PnP Script")
+        print("ROBOT: Loading PnP Script")
         self.robot.send_command('load pick_and_place.urp')
         time.sleep(1)
-        print("Playing PnP Script")
+        print("ROBOT: Playing PnP Script")
         self.robot.send_command('play')
-        print("Waiting for connection from robot")
+        print("ROBOT: Waiting for connection from robot")
         while True:
             try:
                 global client, address
                 client, address = self.robot.server_socket.accept()
-                print(f"Connection from {address}")        
+                print(f"ROBOT: Connection from {address}")        
                 break
             except KeyboardInterrupt:
-                print("Closing connection")
+                print("ROBOT: Closing connection")
                 self.robot.close()
                 sys.exit()
 
-        print("Sending PnP Data")
+        print("ROBOT: Sending PnP Data")
         self.robot.send_PnPData(num_picks, num_sensors, sensor_positions)
         
         # Start a new thread to monitor the serial communication
@@ -191,19 +197,22 @@ class RobotExt:
                         break
 
                 status_update = collected.decode('utf-8')
-                print(f"Status update from robot: {status_update}")
+                print(f"ROBOT: Status update from robot: {status_update}")
 
                 if "Picking" in status_update:
                     self.col = int(status_update.split(" ")[2]) - 1
+                    self.robot_state_changed.emit(f"Picking Sensor ", self.col)
                 elif "Completed" in status_update:
                     self.callback(self.col)
+                    # self.robot_state_changed.emit(f"Completed Sensor ", self.col)
                 elif "Finished" in status_update:
                     self.PnP_done_event.set()
+                    self.robot_state_changed.emit("Finished PnP Cycle", 0)
                     break
 
                 time.sleep(0.5)
         except KeyboardInterrupt:
-            print("Interrupted by user")
+            print("ROBOT: Interrupted by user")
             self.robot.close()
             sys.exit()
 

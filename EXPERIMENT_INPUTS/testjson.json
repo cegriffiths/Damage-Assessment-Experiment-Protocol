@@ -8,85 +8,85 @@
             "ID": 1,
             "row": 0,
             "col": 0,
-            "PnP_cycles": 85,
-            "photos": 59
+            "PnP_cycles": 109,
+            "photos": 78
         },
         {
             "ID": 2,
             "row": 0,
             "col": 1,
-            "PnP_cycles": 81,
-            "photos": 58
+            "PnP_cycles": 93,
+            "photos": 77
         },
         {
             "ID": 3,
             "row": 0,
             "col": 2,
-            "PnP_cycles": 81,
-            "photos": 54
+            "PnP_cycles": 91,
+            "photos": 73
         },
         {
             "ID": 4,
             "row": 0,
             "col": 3,
-            "PnP_cycles": 74,
-            "photos": 48
+            "PnP_cycles": 84,
+            "photos": 65
         },
         {
             "ID": 5,
             "row": 1,
             "col": 0,
-            "PnP_cycles": 70,
-            "photos": 34
+            "PnP_cycles": 74,
+            "photos": 40
         },
         {
             "ID": 6,
             "row": 1,
             "col": 1,
-            "PnP_cycles": 70,
-            "photos": 34
+            "PnP_cycles": 74,
+            "photos": 38
         },
         {
             "ID": 7,
             "row": 1,
             "col": 2,
-            "PnP_cycles": 70,
-            "photos": 32
+            "PnP_cycles": 74,
+            "photos": 35
         },
         {
             "ID": 8,
             "row": 1,
             "col": 3,
-            "PnP_cycles": 64,
-            "photos": 29
+            "PnP_cycles": 68,
+            "photos": 32
         },
         {
             "ID": 9,
             "row": 2,
             "col": 0,
-            "PnP_cycles": 52,
-            "photos": 17
+            "PnP_cycles": 56,
+            "photos": 20
         },
         {
             "ID": 10,
             "row": 2,
             "col": 1,
-            "PnP_cycles": 52,
-            "photos": 16
+            "PnP_cycles": 56,
+            "photos": 19
         },
         {
             "ID": 11,
             "row": 2,
             "col": 2,
-            "PnP_cycles": 52,
-            "photos": 16
+            "PnP_cycles": 56,
+            "photos": 19
         },
         {
             "ID": 12,
             "row": 2,
             "col": 3,
-            "PnP_cycles": 46,
-            "photos": 13
+            "PnP_cycles": 50,
+            "photos": 16
         }
     ]
 }

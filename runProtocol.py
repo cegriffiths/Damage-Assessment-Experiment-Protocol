@@ -62,8 +62,9 @@ class executer(QObject):
         self.UIHandler.flags_updated.connect(self.checkFlags)
         self.stage.shutdown_signal.connect(self.UIHandler.shutdown)
         self.dataHandler.info_updated.connect(self.UIHandler.updateSensorInformation)
-
+        self.robot.robot_state_changed.connect(self.UIHandler.on_robot_update)
         self.update_state.connect(self.UIHandler.updateExperimentState)
+
         self.state = "Initializing"
         self.change_state(self.state)
 
@@ -125,8 +126,8 @@ class executer(QObject):
             if sensor:  # Check if a sensor exists at this position
                 stage_position = self.IMAGING_STAGE_POSITIONS[col]
                 self.stage.moveto(stage_position)
-                self.snapImage(sensor["ID"], row, col)
                 self.dataHandler.increment_num_photos(row, col)
+                self.snapImage(sensor["ID"], sensor["PnP_cycles"], sensor["photos"],row, col)
                 photos = "photos"
                 print(f"PROTOCOL: Took picture number {sensor[photos]} of sensor at ({row}, {col})")
                 time.sleep(1)
@@ -139,13 +140,14 @@ class executer(QObject):
         protocol_thread = threading.Thread(target=self.run_protocol, daemon=True)
         protocol_thread.start()
 
-    def snapImage(self, ID, row, col):
-        print(f"PROTOCOL: Snap! Sensor: {ID}, Row: {row}, Col: {col}")
+    def snapImage(self, ID, num_pnp, photo, row, col):
+        print(f"PROTOCOL: Snap! Sensor: {ID}, Row: {row}, Col: {col}, PnP: {num_pnp}, Photos: {photo}")
         time = datetime.now()
         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-        self.cameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, f"ID{ID}-{timestamp}"))
+        self.cameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, f"ID{ID}-PNP{num_pnp}-PHOTO{photo}-T{timestamp}"))
 
 def handle_exit():
+    execute.robot.calibrate()
     execute.dataHandler.update_experiment_file()
     print("PROTOCOL: Saved Experiment File before closing")
 
