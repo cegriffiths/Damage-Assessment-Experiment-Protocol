@@ -369,7 +369,7 @@ class MainWindow(QMainWindow):
         self.livefeel_label.setPixmap(QPixmap.fromImage(img))
         if self.CameraApp.calibrating:
             self.brightness_label.setText(f"Brightness: {self.CameraApp.brightness}\tDesired Brightness: 202")
-            self.area_label.setText(f"Area: {self.CameraApp.area}\tDesired Area: {376*524}")
+            self.area_label.setText(f"Area: {self.CameraApp.area}\tDesired Area: ~{164000}")
         else:
             self.brightness_label.setText("Brightness: Not Calibrating")
             self.area_label.setText("Area: Not Calibrating")

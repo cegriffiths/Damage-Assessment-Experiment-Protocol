@@ -51,9 +51,10 @@ class DataManager(QObject):
         
         # Load experiment information
         self.gelpak_id = experiment_data.get("GelPak ID")
-        # self.EE = experiment_data.get("EE")
-        # self.num_pnp_cycles = experiment_data.get("NumPnPCycles")
-        # self.imaging_interval = experiment_data.get("ImagingInterval")
+
+        # Make imaging path GelPak and EE specific
+        self.image_folder_path = os.path.join(self.image_folder_path, str(self.gelpak_id), self.EE[:4])
+        os.makedirs(self.image_folder_path, exist_ok=True)
         
         # Load sensor information
         self.sensors = experiment_data.get("grid", [])

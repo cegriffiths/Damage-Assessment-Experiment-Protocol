@@ -37,12 +37,13 @@ def assessCalibration(inImage):
     for r in range(CALIB_FRAME_SIZE[1]):
         for c in range(CALIB_FRAME_SIZE[0]):
             if lightingTestImArr[r + yBorder][c + xBorder][0] > WHITE_LIMIT:
-                total += lightingTestImArr[r + yBorder][c + xBorder][0]
+                total += float(lightingTestImArr[r + yBorder][c + xBorder][0])
                 count += 1
     if count > 0:            
         averageWhiteVal = int(total / count)
     else:
         averageWhiteVal = 0
+    # averageWhiteVal = int(total / count)
     area = count
     # print(f"CAM: AVG PIXEL VALUE: {averageWhiteVal}\nTARGET: 202")
     # print(f"CAM: Count: {count}/{CALIB_FRAME_SIZE[1] * CALIB_FRAME_SIZE[0]}")
@@ -113,7 +114,7 @@ class App:
     
     def snapImage(self, path, res = 0):
         '''Trigger still image capture and set save path.'''
-        # print('CAM: Taking Image')
+        print('CAM: Taking Image')
         if not self.closed:
             self.saved = False
             try:
