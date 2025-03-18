@@ -17,15 +17,24 @@ import time
 from datetime import datetime
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Signal, QObject
-
+import atexit
+import signal
+import sys
 
 class executer(QObject):
 
+    # SENSOR_POSITIONS = [
+    #     [0.0698, -0.450, 0.112, 0, 3.14, 0],
+    #     [0.0698, -0.467, 0.112, 0, 3.14, 0],
+    #     [0.0698, -0.484, 0.112, 0, 3.14, 0],
+    #     [0.0698, -0.501, 0.112, 0, 3.14, 0],
+    #     ]
+
     SENSOR_POSITIONS = [
-        [0.0698, -0.450, 0.1123, 0, 3.14, 0],
-        [0.0698, -0.467, 0.1123, 0, 3.14, 0],
-        [0.0698, -0.484, 0.1123, 0, 3.14, 0],
-        [0.0698, -0.501, 0.1123, 0, 3.14, 0],
+        [0.0698, -0.4495, 0.1117, 0, 3.14, 0],
+        [0.0698, -0.4662, 0.1118, 0, 3.14, 0],
+        [0.0698, -0.4830, 0.112, 0, 3.14, 0],
+        [0.0698, -0.5000, 0.112, 0, 3.14, 0],
         ]
     
     IMAGING_STAGE_POSITIONS = {
@@ -45,21 +54,24 @@ class executer(QObject):
         self.cameraApp = CA.App()
         print("PROTOCOL: Opened camera")
 
-        self.stage = stage.stage()
-        self.stage.calibrate()
-        self.stage.moveto(self.IMAGING_STAGE_POSITIONS[0])
-        print("PROTOCOL: Calibrated stage")
-
         self.robot = robotcontrol.RobotExt()
         self.robot.calibrate()
         print("PROTOCOL: Calibrated robot")
+
+        self.stage = stage.stage()
+        self.stage.calibrate()
+        print("PROTOCOL: Calibrated stage")
+        self.stage.moveto(self.IMAGING_STAGE_POSITIONS[0])
 
         self.UIHandler = UIScript.MainWindow(self.stage, self.dataHandler, self.cameraApp)
         # self.stage.update_stage.connect(self.UIHandler.updateComponents)
         # self.UIHandler.updateComponents()
         self.UIHandler.flags_updated.connect(self.checkFlags)
-
+        self.stage.shutdown_signal.connect(self.UIHandler.shutdown)
+        self.dataHandler.info_updated.connect(self.UIHandler.updateSensorInformation)
+        self.robot.robot_state_changed.connect(self.UIHandler.on_robot_update)
         self.update_state.connect(self.UIHandler.updateExperimentState)
+
         self.state = "Initializing"
         self.change_state(self.state)
 
@@ -89,18 +101,23 @@ class executer(QObject):
 
         while not done:
             self.robot.register_callback(lambda col: self.dataHandler.increment_pnp_cycles(self.dataHandler.current_row, col))
+            self.change_state("Initial Imaging")
             self.image_row(row = self.dataHandler.current_row, go_back=False)
+            self.change_state("Moving to Robot")
             self.stage.moveto(347)
                         
             picks_done = 0
             while picks_done < self.dataHandler.num_pnp_cycles:
                 picks_to_do = min(self.dataHandler.num_pnp_cycles - picks_done, self.dataHandler.imaging_interval)
+                self.change_state("Picking Sensors")
                 self.robot.run(len(self.SENSOR_POSITIONS), picks_to_do, self.SENSOR_POSITIONS)
                 picks_done += picks_to_do
+                self.change_state("Imaging Sensors")
                 self.image_row(row = self.dataHandler.current_row, go_back=picks_done < self.dataHandler.num_pnp_cycles)
                 
             self.stage.moveto(200)
             if self.dataHandler.current_row < self.dataHandler.gelpak_dimensions[0] - 1:
+                self.change_state("Row Change Pause")
                 self.UIHandler.row_change_dialog()
             else:
                 done = True
@@ -108,6 +125,7 @@ class executer(QObject):
                 self.change_state("Complete")
 
     def image_row(self, row, go_back=True):
+        self.change_state("Imaging Sensors")
         return_location = self.stage.position
 
         for col in range(self.dataHandler.gelpak_dimensions[1]):
@@ -115,12 +133,15 @@ class executer(QObject):
             if sensor:  # Check if a sensor exists at this position
                 stage_position = self.IMAGING_STAGE_POSITIONS[col]
                 self.stage.moveto(stage_position)
-                self.snapImage(row, col)
-                self.dataHandler.increment_num_photos(row, col)
-                photos = "photos"
-                print(f"PROTOCOL: Took picture number {sensor[photos]} of sensor at ({row}, {col})")
-                time.sleep(1)
-                self.UIHandler.updateSensorInformation()
+                photos = sensor["photos"]
+                if self.snapImage(sensor["ID"], sensor["PnP_cycles"], photos + 1,row, col):
+                    self.dataHandler.increment_num_photos(row, col)
+                    print(f"PROTOCOL: Took picture number {photos} of sensor at ({row}, {col})")
+                    time.sleep(1)
+                    self.UIHandler.updateSensorInformation()
+                else:
+                    print("PROTOCOL: Error taking photo")
+                    sys.exit()
 
         if go_back:
             self.stage.moveto(return_location)
@@ -129,16 +150,29 @@ class executer(QObject):
         protocol_thread = threading.Thread(target=self.run_protocol, daemon=True)
         protocol_thread.start()
 
-    def snapImage(self, row, col):
-        print(f"PROTOCOL: Snap! Row: {row}, Col: {col}")
+    def snapImage(self, ID, num_pnp, photo, row, col):
+        '''Takes image of current sensor. Returns true if taken and false if there was an error '''  
+        EE = self.dataHandler.EE[:4]
+        print(f"PROTOCOL: Snap! Sensor: {ID}, Row: {row}, Col: {col}, PnP: {num_pnp}, Photos: {photo}, EE: {EE}")
         time = datetime.now()
         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-        # Add back when we actually want images
-        self.cameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, timestamp))
+        return self.cameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, f"EE{EE}-ID{ID}-PNP{num_pnp}-PHOTO{photo}-T{timestamp}"))
+
+def handle_exit():
+    execute.robot.stop()
+    execute.dataHandler.update_experiment_file()
+    print("PROTOCOL: Saved Experiment File before closing")
+
+def setup_exit_handlers():
+    """Setup both atexit and signal handlers"""
+    atexit.register(handle_exit)
+    signal.signal(signal.SIGTERM, lambda signum, frame: handle_exit())
+    signal.signal(signal.SIGINT, lambda signum, frame: handle_exit())
 
 
 if __name__ == '__main__':
     app = QApplication([])
     execute = executer()
+    setup_exit_handlers()
     execute.run_protocol_in_background()
     app.exec()

@@ -23,25 +23,28 @@ from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel,
     QLineEdit, QComboBox, QSpinBox, QFileDialog, QMessageBox, QCheckBox, QGridLayout, QDialog)
 from PySide6.QtMultimedia import (QCamera, QImageCapture,
                                   QCameraDevice, QMediaCaptureSession,
-                                  QMediaDevices)
+                                  QMediaDevices, QMediaPlayer, QSoundEffect)
 from PySide6.QtMultimediaWidgets import QVideoWidget
 
 # Set the QT_PLUGIN_PATH to the platforms folder
 os.environ["QT_PLUGIN_PATH"] = os.path.join(os.path.dirname(PySide6.__file__), "plugins")
 
 class SensorLayout(QWidget):
-    def __init__(self, sensor_id, num_pnp):
+    def __init__(self, sensor_id, num_pnp, num_photos):
         super().__init__()
         self.sensor_id = sensor_id
         self.cycles = num_pnp
+        self.photos = num_photos
 
         layout = QVBoxLayout()
 
         self.id_label = QLabel(f"Sensor ID: {self.sensor_id}")
         self.cycles_label = QLabel(f"Cycles: {self.cycles}")
+        self.photos_label = QLabel(f"Photos: {self.photos}")
 
         layout.addWidget(self.id_label)
         layout.addWidget(self.cycles_label)
+        layout.addWidget(self.photos_label)
 
         self.setLayout(layout)
 
@@ -52,6 +55,10 @@ class SensorLayout(QWidget):
     def updateCycles(self, cycles):
         self.cycles = cycles
         self.cycles_label.setText(f"Cycles: {self.cycles}")
+
+    def updatePhotos(self, photos):
+        self.photos = photos
+        self.photos_label.setText(f"Photos: {self.photos}")
 
 class MainWindow(QMainWindow):
 
@@ -71,8 +78,7 @@ class MainWindow(QMainWindow):
 
         # Set up stage signals if stage is provided
         if self.stage:
-            self.stage.state_changed.connect(self.on_stage_state_update)
-            self.stage.position_changed.connect(self.on_stage_position_update)
+            self.stage.stage_changed.connect(self.on_stage_update)
 
         if self.dataHandler:
             self.dataHandler.row_changed.connect(self.on_row_update)
@@ -90,8 +96,7 @@ class MainWindow(QMainWindow):
     def set_stage(self, stage):
         """Set the stage object after initialization and connect signals."""
         self.stage = stage
-        self.stage.state_changed.connect(self.on_stage_state_update)
-        self.stage.position_changed.connect(self.on_stage_position_update)
+        self.stage.stage_changed.conntect(self.on_stage_update)
 
     def set_dataHandler(self, dataHandler):
         """Set the dataHandler object after initialization."""
@@ -157,7 +162,7 @@ class MainWindow(QMainWindow):
         robot_layout.setContentsMargins(0, 0, 0, 0)
         self.robot_label = QLabel("Robot Information")
         self.robot_label.setFont(header_font)
-        self.robot_state_label = QLabel("State: ")
+        self.robot_state_label = QLabel("State: Initialized")
         robot_layout.addWidget(self.robot_label, alignment=Qt.AlignHCenter)
         robot_layout.addWidget(self.robot_state_label)
         robot_stage_layout.addLayout(robot_layout)
@@ -176,7 +181,8 @@ class MainWindow(QMainWindow):
                 sensor = self.dataHandler.get_sensor(UI_row, 3-UI_col)
                 sensor_id = sensor["ID"] if sensor else "N/A"
                 num_pnp = sensor["PnP_cycles"] if sensor else 0
-                sensor_widget = SensorLayout(sensor_id, num_pnp)
+                num_photos = sensor["photos"] if sensor else 0
+                sensor_widget = SensorLayout(sensor_id, num_pnp, num_photos)
                 self.sensor_grid_layout.addWidget(sensor_widget, UI_row, UI_col)
         
         sensor_layout.addWidget(self.sensor_label, alignment=Qt.AlignHCenter)
@@ -270,6 +276,7 @@ class MainWindow(QMainWindow):
         imaging_buttons_layout.addWidget(self.cam_calib_push_button)
         self.confirm_calib_push_button = QPushButton("Camera is calibrated")
         self.confirm_calib_push_button.clicked.connect(self.confirmCameraCalibration)
+        self.confirm_calib_push_button.setEnabled(False)
         imaging_buttons_layout.addWidget(self.confirm_calib_push_button)
         imaging_layout.addLayout(imaging_buttons_layout)
 
@@ -325,7 +332,8 @@ class MainWindow(QMainWindow):
                 if sensor_widget and sensor:
                     sensor_widget.updateID(sensor["ID"])
                     sensor_widget.updateCycles(sensor["PnP_cycles"])
-        print("UI: Sensor information updated.")
+                    sensor_widget.updatePhotos(sensor["photos"])
+        # print("UI: Sensor information updated.")
 
     def row_change_dialog(self):
         """Ensure UI interactions run in the main thread."""
@@ -342,7 +350,7 @@ class MainWindow(QMainWindow):
     @QtCore.Slot()
     def _row_change_dialog(self):
         """Create dialog box to block all functions until user changes GelPak row"""
-        print("UI: Time to change rows")
+        # print("UI: Time to change rows")
         # Create dialog box for user 
         self.dialog = ConfirmationDialog(self.row_change_confirmed, self.dataHandler.current_row, self)
         self.dialog.exec()
@@ -351,9 +359,9 @@ class MainWindow(QMainWindow):
         self.row_event.set()
 
     def row_change_confirmed(self):
-        print("UI: Row changed")
+        # print("UI: Row changed")
         self.dataHandler.increment_row()
-        print("UI: Row Incremeted in dataHandler")
+        # print("UI: Row Incremeted in dataHandler")
 
     def liveCallback(self):
         img = QImage(self.CameraApp.buf, self.CameraApp.width, self.CameraApp.height, (self.CameraApp.width * 24 + 31) // 32 * 4, QImage.Format_RGB888)
@@ -361,51 +369,75 @@ class MainWindow(QMainWindow):
         self.livefeel_label.setPixmap(QPixmap.fromImage(img))
         if self.CameraApp.calibrating:
             self.brightness_label.setText(f"Brightness: {self.CameraApp.brightness}\tDesired Brightness: 202")
-            self.area_label.setText(f"Area: {self.CameraApp.area}\tDesired Area: {376*524}")
+            self.area_label.setText(f"Area: {self.CameraApp.area}\tDesired Area: ~{164000}")
         else:
             self.brightness_label.setText("Brightness: Not Calibrating")
             self.area_label.setText("Area: Not Calibrating")
 
     def closeEvent(self, event):
-        event.accept()
+        print("UI: CLOSING SYSTEM")
         self.CameraApp.closeCam()
+        # self.dataHandler.update_experiment_file()
+        event.accept()
+        sys.exit()
+        # QApplication.quit()
+        # sys.exit()
+
+    def shutdown(self):
+        # print("UI: Shutdown")
+        print("UI: SHUTTING DOWN SYSTEM")
+        QApplication.quit()
 
     def snapImage(self):
-        print("UI: Snap!")
+        # print("UI: Snap!")
         time = datetime.now()
         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-        self.CameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, timestamp))
+        self.CameraApp.snapImage(os.path.join(self.dataHandler.image_folder_path, f"Manual-{timestamp}"))
 
     def checkCameraCalibration(self):
         self.CameraApp.calibrating = not self.CameraApp.calibrating
         if self.CameraApp.calibrating:
             self.cam_calib_push_button.setText("Stop Calibrating")
+            self.confirm_calib_push_button.setEnabled(True)
+            print("UI: Camera Calibration Open")
         else:
             self.cam_calib_push_button.setText("Start Calibrating")
+            self.confirm_calib_push_button.setEnabled(False)
+            print("UI: Camera Calibration Closed")
 
     def confirmCameraCalibration(self):
+        print(f"UI: Confirmed Camera Calibration: Brightness: {self.CameraApp.brightness}\tDesired Brightness: 202\tArea: {self.CameraApp.area}\tDesired Area: {376*524}")
         self.calibratedCameraFlag = True
         self.flags_updated.emit()
         self.confirm_calib_push_button.setEnabled(False)
 
     def updateExperimentState(self, state):
         self.experiment_state_label.setText(f"State: {state}")
+        # print(f"UI: Experiment state is {state}")
 
-    def on_stage_state_update(self, state):
-        self.stage_state_label.setText(f"State: {state}")
-
-    def on_stage_position_update(self, position):
-        self.stage_currentPos_label.setText(f"Position: {position}")
-        print(f"UI: Stage position is {position}")
+    def on_stage_update(self):
+        self.stage_state_label.setText(f"State: {self.stage.state}")
+        self.stage_currentPos_label.setText(f"Position: {self.stage.position}")
+        # print(f"UI: Stage updated\tState: {self.stage.state}\tPosition: {self.stage.position}")
 
     def on_row_update(self, row):
-        self.current_row_label.setText(f"Current row: {row + 1}")
-        print(f"UI: Updated current row to {row + 1}")
+        self.current_row_label.setText(f"Current Row: {row + 1}")
+        # print(f"UI: Updated current row to {row + 1}")
+
+    def on_robot_update(self, state, col):
+        if state != "Finished PnP Cycle":
+            ID = self.dataHandler.get_sensor(self.dataHandler.current_row, col)["ID"]
+            self.robot_state_label.setText(f"State: {state} {ID}")
+            # print(f"UI: Updated robot state to {state} {ID}")
+        else:
+            self.robot_state_label.setText(f"State: {state}")
+            # print(f"UI: Updated robot state to {state}")
 
 
 class ConfirmationDialog(QDialog):
     def __init__(self, callback_function, current_row, parent=None):
         super().__init__(parent)
+        self.parent = parent
         self.callback_function = callback_function
         self.setWindowTitle("Row Change")
         self.setModal(True)  # Makes the dialog modal (Freeze MainWindow)
@@ -419,16 +451,26 @@ class ConfirmationDialog(QDialog):
         layout.addWidget(confirm_button)
         self.setLayout(layout)
 
+        self.sound_effect = QSoundEffect()
+        self.sound_effect.setSource(QUrl.fromLocalFile("Audio/TF014.WAV"))
+        self.sound_effect.setLoopCount(10000)
+        self.sound_effect.setVolume(100)
+        self.sound_effect.play()
+
     def on_confirm(self):
         print("UI: Row Change Confirmed by User")
+        self.sound_effect.stop()
         self.accept()  # Close the dialog
         self.callback_function()  # Call the function after closing
 
     def closeEvent(self, event):
         """If user clicks 'X', close the entire application."""
         # event.accept()
-        print("UI: Closed program before changing rows")
-        sys.exit(0)
+        if type(self.parent) is MainWindow:
+            print("UI: Closed program before changing rows")
+            self.parent.closeEvent(event)
+        else:
+            sys.exit(0)
 
 # Run the application
 if __name__ == "__main__":

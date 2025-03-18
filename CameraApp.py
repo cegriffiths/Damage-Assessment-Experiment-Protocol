@@ -37,9 +37,13 @@ def assessCalibration(inImage):
     for r in range(CALIB_FRAME_SIZE[1]):
         for c in range(CALIB_FRAME_SIZE[0]):
             if lightingTestImArr[r + yBorder][c + xBorder][0] > WHITE_LIMIT:
-                total += lightingTestImArr[r + yBorder][c + xBorder][0]
+                total += float(lightingTestImArr[r + yBorder][c + xBorder][0])
                 count += 1
-    averageWhiteVal = int(total / count)
+    if count > 0:            
+        averageWhiteVal = int(total / count)
+    else:
+        averageWhiteVal = 0
+    # averageWhiteVal = int(total / count)
     area = count
     # print(f"CAM: AVG PIXEL VALUE: {averageWhiteVal}\nTARGET: 202")
     # print(f"CAM: Count: {count}/{CALIB_FRAME_SIZE[1] * CALIB_FRAME_SIZE[0]}")
@@ -60,6 +64,7 @@ class App:
         self.brightness = None
         self.area = None
         self.counter = 0
+        self.closed = False
 
     def setLiveCallback(self, liveCallback):
         self.liveCallback = liveCallback
@@ -109,15 +114,22 @@ class App:
     
     def snapImage(self, path, res = 0):
         '''Trigger still image capture and set save path.'''
-        # print('CAM: Taking Image')
-        self.saved = False
-        try:
-            self.hcam.Snap(res)
-        except:
-            print(f"CAM: ERROR: Could not snap still image for path: {path}")
+        print('CAM: Taking Image')
+        if not self.closed:
+            self.saved = False
+            try:
+                self.hcam.Snap(res)
+            except:
+                print(f"CAM: ERROR: Could not snap still image for path: {path}")
+                return False
+            else:
+                self.stillPath = path
+                return True
+                print('CAM: Took Image')
         else:
-            print('CAM: Took Image')
-            self.stillPath = path
+            print("CAM: Camera is closed")
+            return False
+
     
     def closeCam(self):
         print("CAM: Closing")
@@ -128,6 +140,7 @@ class App:
         self.stillBuf = None
         self.stillSize = None
         self.lastFrame = None
+        self.closed = True
 
     @staticmethod
     def cameraCallback(nEvent, ctx):
@@ -243,6 +256,5 @@ class App:
                 print(f'CAM: Demosaic: {self.hcam.get_Option(amcam.AMCAM_OPTION_DEMOSAIC)}')
             except Exception as e:
                 print(f"CAM: Error updating camera settings: {e}\n")
-                # print(e)
                 return False
         return True
