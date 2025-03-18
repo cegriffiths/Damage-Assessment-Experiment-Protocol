@@ -305,7 +305,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Input Error", "Please select a file")
             return
 
-        if imaging_interval >= num_pnp_cycles:
+        if imaging_interval > num_pnp_cycles:
             QMessageBox.warning(self, "Input Error", "Imaging interval must be less than PnP cycles")
             return
 
@@ -369,7 +369,7 @@ class MainWindow(QMainWindow):
         self.livefeel_label.setPixmap(QPixmap.fromImage(img))
         if self.CameraApp.calibrating:
             self.brightness_label.setText(f"Brightness: {self.CameraApp.brightness}\tDesired Brightness: 202")
-            self.area_label.setText(f"Area: {self.CameraApp.area}\tDesired Area: ~{164000}")
+            self.area_label.setText(f"Area: {self.CameraApp.area}\tDesired Area: {164000}")
         else:
             self.brightness_label.setText("Brightness: Not Calibrating")
             self.area_label.setText("Area: Not Calibrating")
@@ -453,7 +453,7 @@ class ConfirmationDialog(QDialog):
 
         self.sound_effect = QSoundEffect()
         self.sound_effect.setSource(QUrl.fromLocalFile("Audio/TF014.WAV"))
-        self.sound_effect.setLoopCount(10000)
+        self.sound_effect.setLoopCount(2)
         self.sound_effect.setVolume(100)
         self.sound_effect.play()
 

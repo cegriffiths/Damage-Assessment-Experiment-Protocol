@@ -31,10 +31,10 @@ class executer(QObject):
     #     ]
 
     SENSOR_POSITIONS = [
-        [0.0698, -0.4495, 0.1117, 0, 3.14, 0],
-        [0.0698, -0.4662, 0.1118, 0, 3.14, 0],
-        [0.0698, -0.4830, 0.112, 0, 3.14, 0],
-        [0.0698, -0.5000, 0.112, 0, 3.14, 0],
+        [0.0698, -0.4965, 0.1115, 0, 3.14, 0],
+        [0.0698, -0.5132, 0.1116, 0, 3.14, 0],
+        [0.0698, -0.5300, 0.1117, 0, 3.14, 0],
+        [0.0698, -0.5470, 0.1117, 0, 3.14, 0],
         ]
     
     IMAGING_STAGE_POSITIONS = {
@@ -43,6 +43,9 @@ class executer(QObject):
         1: 40,
         0: 23,
     }
+
+    ROBOT_STAGE_POSITION = 300
+    ROW_CHANGE_STAGE_POSITION = 175
 
     update_state = Signal(str)  # Signal which, when the state is updated here, calls the function in MainWindow
 
@@ -104,7 +107,7 @@ class executer(QObject):
             self.change_state("Initial Imaging")
             self.image_row(row = self.dataHandler.current_row, go_back=False)
             self.change_state("Moving to Robot")
-            self.stage.moveto(347)
+            self.stage.moveto(self.ROBOT_STAGE_POSITION)
                         
             picks_done = 0
             while picks_done < self.dataHandler.num_pnp_cycles:
@@ -115,7 +118,7 @@ class executer(QObject):
                 self.change_state("Imaging Sensors")
                 self.image_row(row = self.dataHandler.current_row, go_back=picks_done < self.dataHandler.num_pnp_cycles)
                 
-            self.stage.moveto(200)
+            self.stage.moveto(self.ROW_CHANGE_STAGE_POSITION)
             if self.dataHandler.current_row < self.dataHandler.gelpak_dimensions[0] - 1:
                 self.change_state("Row Change Pause")
                 self.UIHandler.row_change_dialog()
