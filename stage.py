@@ -47,12 +47,26 @@ class stage(QObject):
         '''Calibrates the linear stage'''
         ## Attempts to move the stage backwards the distance of the stage so it will reach the limit switch
         # print("STAGE: Calibrating")
+
+        ## move to home of stage
         dist = STAGELENGTH
         direction = False
         self.sendMoveCommand(direction, dist, CALIBRATIONVELOCITY)
         self.motionFlag = True
         self.waitForStage()
         # self.position = 0
+
+        ## move away from home a small amount
+        dist = 1
+        self.sendMoveCommand(not direction, dist, CALIBRATIONVELOCITY)
+        self.motionFlag = True
+        self.waitForStage()
+
+        ## move back to home slowly and repeatably
+        dist = 2
+        self.sendMoveCommand(direction, dist, 1)
+        self.motionFlag = True
+        self.waitForStage()
         self._previousMotionWasCalibration = True
         print("STAGE: Calibration Complete")
 
@@ -178,15 +192,15 @@ class stage(QObject):
 if __name__ == '__main__':
     stage = stage()
     stage.calibrate()
-    # stage.moveto(74)
-    # time.sleep(0.1)
-    # stage.moveto(57)
-    # time.sleep(0.1)
-    # stage.moveto(40)
-    # time.sleep(0.1)
-    # stage.moveto(23)
+    stage.moveto(74)
+    time.sleep(0.1)
+    stage.moveto(57)
+    time.sleep(0.1)
+    stage.moveto(40)
+    time.sleep(0.1)
+    stage.moveto(23)
 
-    stage.moveto(30)
+    # stage.moveto(30)
     # time.sleep(0.1)
     # stage.moveto(40)
     # time.sleep(0.1)

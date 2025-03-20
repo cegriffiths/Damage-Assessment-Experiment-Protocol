@@ -124,8 +124,8 @@ class App:
                 return False
             else:
                 self.stillPath = path
-                return True
                 print('CAM: Took Image')
+                return True
         else:
             print("CAM: Camera is closed")
             return False
@@ -183,7 +183,7 @@ class App:
             else:
                 try:
                     # Construct image from bytes and manipulate as needed (rotate, flip, etc.)
-                    image = Image.frombytes('RGB', self.stillSize, self.stillBuf).rotate(90, expand=True).transpose(Image.FLIP_TOP_BOTTOM)
+                    image = Image.frombytes('RGB', self.stillSize, self.stillBuf).rotate(90, expand=True)
                     # Save image to path
                     image.save(f"{self.stillPath}.png")
                     print(f'CAM: Saved to {self.stillPath}')
